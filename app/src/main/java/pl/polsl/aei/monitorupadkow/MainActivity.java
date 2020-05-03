@@ -8,6 +8,10 @@ import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeAdvertiser;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanSettings;
+import android.companion.BluetoothLeDeviceFilter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -35,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
     ListView devices;
     private BluetoothAdapter btAdapter;
     private Set<BluetoothDevice> bluetoothDevices;
+    private BluetoothDevice miband;
     private BluetoothGatt bluetoothGatt;
     private final static int REQUEST_ENABLE_BT = 1;
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
@@ -65,28 +70,30 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onConnectionStateChange(BluetoothGatt gatt, int status,
                                                     int newState) {
+                    System.out.println("onConnectionStateChange");
                     String intentAction;
                     bluetoothGatt = gatt;
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         intentAction = ACTION_GATT_CONNECTED;
                         connectionState = STATE_CONNECTED;
-                        Toast.makeText(getApplicationContext(), "Connection state change - connected: " + newState + " " + status, Toast.LENGTH_SHORT).show();
+                        System.out.println("Connection state change - connected: " + newState + " " + status);
                         gatt.discoverServices();
 
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         intentAction = ACTION_GATT_DISCONNECTED;
                         connectionState = STATE_DISCONNECTED;
-                        Toast.makeText(getApplicationContext(), "Connection state change - disconnected: "  + newState + " " + status, Toast.LENGTH_SHORT).show();
+                        System.out.println("Connection state change - disconnected: "  + newState + " " + status);
                     }
                 }
 
                 @Override
                 // New services discovered
                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+                    System.out.println("onServiceDiscovered");
                     if (status == BluetoothGatt.GATT_SUCCESS) {
-                        Toast.makeText(getApplicationContext(), "Service with success discovered: " + status, Toast.LENGTH_SHORT).show();
+                        System.out.println("Service with success discovered: " + status);
                     } else {
-                        Toast.makeText(getApplicationContext(), "Service discovered but else: " + status, Toast.LENGTH_SHORT).show();
+                        System.out.println("Service discovered but else: " + status);
                     }
                 }
 
@@ -95,15 +102,16 @@ public class MainActivity extends AppCompatActivity {
                 public void onCharacteristicRead(BluetoothGatt gatt,
                                                  BluetoothGattCharacteristic characteristic,
                                                  int status) {
+                    System.out.println("onCharacteristicRead");
                     if (status == BluetoothGatt.GATT_SUCCESS) {
-                        Toast.makeText(getApplicationContext(), "Characteristic read: " + characteristic.getUuid().toString(), Toast.LENGTH_SHORT).show();
+                        System.out.println("Characteristic read: " + characteristic.getUuid().toString());
                     }
                 }
 
                 @Override
                 public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status)
                 {
-                    Toast.makeText(getApplicationContext(), "Characteristic write: " + status, Toast.LENGTH_SHORT).show();
+                    System.out.println("onCharacteristicWrite " + status);
                 }
             };
 
@@ -111,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
     // Create a BroadcastReceiver for ACTION_FOUND.
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
 
+        @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
@@ -119,16 +128,18 @@ public class MainActivity extends AppCompatActivity {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 String deviceName = device.getName();
                 String deviceHardwareAddress = device.getAddress(); // MAC address
-                Toast.makeText(context, deviceName, Toast.LENGTH_SHORT).show();
                 if (device.getName().contentEquals("Mi Band 3")) {
+                    miband = device;
                     Toast.makeText(context, "JEST MI BAND", Toast.LENGTH_SHORT).show();
-                    bluetoothGatt = device.connectGatt(context, false, gattCallback);
                 }
                 list.add(deviceName);
                 adapter.notifyDataSetChanged();
+            } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)){
+                Toast.makeText(context, "Contents: " + intent.describeContents(), Toast.LENGTH_SHORT).show();
             }
         }
     };
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -176,22 +187,36 @@ public class MainActivity extends AppCompatActivity {
 
 
     public void mainButtonOnClick(View view) {
-        if (btAdapter == null) {
-            Toast.makeText(this, "NIE MA BLUETOOTH", Toast.LENGTH_SHORT).show();
-        } else if (btAdapter.isEnabled()){
-            Toast.makeText(this, "LISTOWANIE URZĄDZEŃ", Toast.LENGTH_SHORT).show();
-            bluetoothDevices = btAdapter.getBondedDevices();
+        if (bluetoothGatt == null) {
+            if (btAdapter == null) {
+                Toast.makeText(this, "NIE MA BLUETOOTH", Toast.LENGTH_SHORT).show();
+            } else if (btAdapter.isEnabled()) {
+                Toast.makeText(this, "LISTOWANIE URZĄDZEŃ", Toast.LENGTH_SHORT).show();
+                bluetoothDevices = btAdapter.getBondedDevices();
 
-            if (btAdapter.startDiscovery()){
-                Toast.makeText(this, "ROZPOCZETO SKANOWANIE", Toast.LENGTH_SHORT).show();
+                if (btAdapter.startDiscovery()) {
+                    Toast.makeText(this, "ROZPOCZETO SKANOWANIE", Toast.LENGTH_SHORT).show();
+                }
+                for (BluetoothDevice btDevice : bluetoothDevices) {
+                    list.add(btDevice.getName());
+                }
+            } else if (!btAdapter.isEnabled()) {
+                Toast.makeText(this, "JEST WYŁĄCZONE", Toast.LENGTH_SHORT).show();
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
             }
-            for (BluetoothDevice btDevice : bluetoothDevices) {
-                list.add(btDevice.getName());
-            }
-        } else if (!btAdapter.isEnabled()){
-            Toast.makeText(this, "JEST WYŁĄCZONE", Toast.LENGTH_SHORT).show();
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        } else {
+            Toast.makeText(this, "JEST GATT: " + bluetoothGatt.getDevice().getName() + connectionState, Toast.LENGTH_SHORT).show();
+            //Toast.makeText(this, bluetoothGatt.getDevice().getUuids().toString(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void connectButtonClick(View view){
+        if (miband != null){
+            bluetoothGatt = miband.connectGatt(this, true, gattCallback);
+            Toast.makeText(this, "ŁĄCZENIE", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "NIE MA MI BANDA", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -201,5 +226,6 @@ public class MainActivity extends AppCompatActivity {
         // Don't forget to unregister the ACTION_FOUND receiver.
         unregisterReceiver(receiver);
     }
+
 
 }
