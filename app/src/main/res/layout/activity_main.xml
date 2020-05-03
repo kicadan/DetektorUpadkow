@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <Button
+        android:id="@+id/scan_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="mainButtonOnClick"
+        android:text="URZĄDZENIA SPAROWANE"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btDevicesList" />
+
+    <android.support.constraint.Guideline
+        android:id="@+id/guideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_begin="20dp" />
+
+    <ImageView
+        android:id="@+id/btIcon"
+        android:layout_width="139dp"
+        android:layout_height="131dp"
+        android:backgroundTint="#FFADAD"
+        app:layout_constraintBottom_toTopOf="@+id/btDevicesList"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/ic_action_search" />
+
+    <ListView
+        android:id="@+id/btDevicesList"
+        android:layout_width="416dp"
+        android:layout_height="321dp"
+        app:layout_constraintBottom_toTopOf="@+id/scan_button"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btIcon" />
+
+    <TextView
+        android:id="@+id/peripheralTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Devices"
+        app:layout_constraintBottom_toTopOf="@+id/btDevicesList"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btIcon" />
+
+</android.support.constraint.ConstraintLayout>
