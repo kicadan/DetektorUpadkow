@@ -24,7 +24,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_begin="20dp" />
+        app:layout_constraintGuide_end="413dp" />
 
     <ImageView
         android:id="@+id/btIcon"
@@ -69,5 +69,15 @@
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/scan_button" />
+
+    <Button
+        android:id="@+id/authButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="authButtonClick"
+        android:text="autentykuj"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/scan_button"
+        tools:layout_editor_absoluteX="39dp" />
 
 </android.support.constraint.ConstraintLayout>
