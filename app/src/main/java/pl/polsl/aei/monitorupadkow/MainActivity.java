@@ -26,7 +26,9 @@ import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -49,7 +51,12 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothGattCharacteristic characteristic0x0051;
     private BluetoothGattCharacteristic characteristicAuth;
     private BluetoothGattCharacteristic characteristic0x005b;
-    private BluetoothGattDescriptor bluetoothGattDescriptor;
+    private BluetoothGattCharacteristic notifications;
+    private BluetoothGattDescriptor gattDescriptor0051;
+    private BluetoothGattDescriptor gattDescriptor005b;
+    private BluetoothGattDescriptor notificationsDesc;
+    private BluetoothGattCharacteristic immediateAlertCh;
+    private BluetoothGattDescriptor immediateAlertDesc;
     private final static int REQUEST_ENABLE_BT = 1;
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
 
@@ -58,7 +65,9 @@ public class MainActivity extends AppCompatActivity {
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
-    private static final int NOTIFICATIONS_REQUESTED = 3;
+    private static final int NOTIFICATIONS_REQUESTED_b = 32;
+    private static final int NOTIFICATIONS_REQUESTED_0 = 31;
+    private static final int CHARACTERISTIC_READ = 30;
     private static final int KEY_SENT = 4;
     private static final int KEY_REQUESTED = 5;
     private static final int KEY_ENCRYPTED = 6;
@@ -78,7 +87,8 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<String> list;
     ArrayAdapter adapter;
 
-    byte[] encryptionKey = new byte[]{(byte)0xf0, (byte)0xac, (byte)0xa3, (byte)0xb6, (byte)0xcd, 0x0e, (byte)0xc5, (byte)0x85, 0x37, 0x12, (byte)0x8f, 0x48, 0x4f, 0x68, 0x7b, (byte)0xb5};
+    byte[] encryptionKey = "Kj6dUM1y3kBAPBey".getBytes();//new byte[]{(byte)0xf0, (byte)0xac, (byte)0xa3, (byte)0xb6, (byte)0xcd, 0x0e, (byte)0xc5, (byte)0x85, 0x37, 0x12, (byte)0x8f, 0x48, 0x4f, 0x68, 0x7b, (byte)0xb5};
+    String key = "Kj6dUM1y3kBAPBey";
 
     private final BluetoothGattCallback gattCallback =
             new BluetoothGattCallback() {
@@ -131,16 +141,38 @@ public class MainActivity extends AppCompatActivity {
                             if (characteristic.getUuid().toString().equals("00000020-0000-3512-2118-0009af100700")){
                                 System.out.println("Auth 0x0050 i 1 znaleziona");
                                 characteristicNotifications = characteristic;
-                                bluetoothGattDescriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-                                if (bluetoothGattDescriptor != null)
+                                bluetoothGatt.setCharacteristicNotification(characteristicNotifications, true);
+                                gattDescriptor0051 = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+                                if (gattDescriptor0051 != null)
                                     System.out.println("jest 0x2902");
-                                bluetoothGattDescriptor.setValue(new byte[]{0x01, 0x00});
-                                if (bluetoothGatt.writeDescriptor(bluetoothGattDescriptor))
-                                    connectionState = NOTIFICATIONS_REQUESTED;
+                                bluetoothGatt.readCharacteristic(characteristicNotifications); System.out.println("success");
+                                connectionState = CHARACTERISTIC_READ;
+                                System.out.println("characteristic read req");
                             }
                             if (characteristic.getUuid().toString().equals("00000009-0000-3512-2118-0009af100700")){
                                 System.out.println("Auth 0x005b i a znaleziona");
                                 characteristicAuth = characteristic;
+                                bluetoothGatt.setCharacteristicNotification(characteristicAuth, true);
+                                gattDescriptor005b = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+                                for(BluetoothGattDescriptor desc : characteristic.getDescriptors())
+                                    System.out.println(desc.getUuid());
+                            }
+                            if (characteristic.getUuid().toString().equals("00002a46-0000-1000-8000-00805f9b34fb")){
+                                System.out.println("Jest notification service");
+                                notifications = characteristic;
+                                bluetoothGatt.setCharacteristicNotification(notifications, false);
+                                notificationsDesc = characteristic.getDescriptor(UUID.fromString("00002901-0000-1000-8000-00805f9b34fb"));
+                                for(BluetoothGattDescriptor desc: notifications.getDescriptors()){
+                                    System.out.println(desc.getUuid());
+                                }
+                            }
+                            if (characteristic.getUuid().toString().equals("00001802-0000-1000-8000-00805f9b34fb")){
+                                System.out.println("Jest immediate alert");
+                                immediateAlertCh = characteristic;
+                                //immediateAlertDesc = characteristic.getDescriptor(UUID.fromString("00002901-0000-1000-8000-00805f9b34fb"));
+                                for(BluetoothGattDescriptor desc: notifications.getDescriptors()){
+                                    System.out.println(desc.getUuid());
+                                }
                             }
                             System.out.println("Characteristic: " + characteristic.getUuid().toString());
                         }
@@ -153,69 +185,42 @@ public class MainActivity extends AppCompatActivity {
                                                  BluetoothGattCharacteristic characteristic,
                                                  int status) {
                     System.out.println("onCharacteristicRead");
-                    if (status == BluetoothGatt.GATT_SUCCESS) {
-                        System.out.println("Characteristic read: " + characteristic.getUuid().toString());
+                    if (characteristic.getUuid().toString().contentEquals("00000020-0000-3512-2118-0009af100700") && connectionState == CHARACTERISTIC_READ){
+                        System.out.println("On characteristic read: " + Arrays.toString(characteristic.getValue()));
+                        gattDescriptor0051.setValue(new byte[]{0x01, 0x00});
+                        System.out.println("notifications_requested req: " + Arrays.toString(new byte[]{0x01, 0x00}));
+                        if (bluetoothGatt.writeDescriptor(gattDescriptor0051))
+                            connectionState = NOTIFICATIONS_REQUESTED_0;
                     }
                 }
 
                 @Override
                 public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status)
                 {
-                    System.out.println("onCharacteristicWrite " + status);
-                    if (characteristic.getUuid().toString().contentEquals("00000009-0000-3512-2118-0009af100700") && connectionState == KEY_SENT){ System.out.println(characteristic.getValue());
-                        characteristicAuth.setValue(new byte[] {0x02, 0x00}); System.out.println("udane key_sent");
-                        if (bluetoothGatt.writeCharacteristic(characteristicAuth))
-                            connectionState = KEY_REQUESTED;
-                    } else if (characteristic.getUuid().toString().contentEquals("00000009-0000-3512-2118-0009af100700") && connectionState == KEY_REQUESTED){
-                        byte[] response = characteristic.getValue();
-                        byte[] encrypted = null;
-                        System.out.println(String.valueOf(response));
-                        SecretKeySpec skeySpec = new SecretKeySpec(encryptionKey, "AES/ECB/PKCS5Padding"); if (skeySpec == null) System.out.println("nie ma encryptora");
+                    System.out.println("onCharacteristicWrite " + characteristic.getUuid() + ", val: " + Arrays.toString(characteristic.getValue()));
 
-                        try {
-                            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-                            cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
-                            encrypted = cipher.doFinal(response);
-
-                            ByteArrayOutputStream output = new ByteArrayOutputStream();
-                            output.write(new byte[]{0x03, 0x00});
-                            output.write(encrypted);
-
-                            byte[] out = output.toByteArray();
-                            characteristicAuth.setValue(out);
-                            if (bluetoothGatt.writeCharacteristic(characteristicAuth))
-                                connectionState = KEY_ENCRYPTED;
-                        } catch(IOException e){
-                            System.out.println("Nie udało się stworzyć tablicy bajtów");
-                        } catch(java.security.NoSuchAlgorithmException e){
-                            System.out.println(e.toString());
-                        } catch(javax.crypto.NoSuchPaddingException e){
-                            System.out.println(e.toString());
-                        } catch(javax.crypto.BadPaddingException e){
-                            System.out.println(e.toString());
-                        } catch(javax.crypto.IllegalBlockSizeException e){
-                            System.out.println(e.toString());
-                        } catch(java.security.InvalidKeyException e){
-                            System.out.println(e.toString());
-                        }
-                    } else if (characteristic.getUuid().toString().contentEquals("00000009-0000-3512-2118-0009af100700") && connectionState == KEY_REQUESTED){
-                        System.out.println(characteristic.getValue());
-                    }
                 }
 
                 @Override
                 public void onDescriptorWrite(BluetoothGatt gatt,
                                               BluetoothGattDescriptor descriptor,
                                               int status){
-                    System.out.println("onDescriptorWrite: " + descriptor.getUuid().toString());
-                    if (descriptor.getUuid().toString().contentEquals("00002902-0000-1000-8000-00805f9b34fb") && connectionState == NOTIFICATIONS_REQUESTED) {
-                        try { System.out.println("udane notifications_requested"); System.out.println(descriptor.getValue());
+                    System.out.println("onDescriptorWrite: " + descriptor.getUuid() + ", val: " + Arrays.toString(descriptor.getValue()));
+                    if (descriptor.getUuid().toString().contentEquals("00002902-0000-1000-8000-00805f9b34fb") && connectionState == NOTIFICATIONS_REQUESTED_0) {
+                        System.out.println("On notifications descriptor_0 write: " + Arrays.toString(descriptor.getValue()));
+                        gattDescriptor005b.setValue(new byte[]{0x01, 0x00});
+                        System.out.println("notifications_requested_b req: " + Arrays.toString(new byte[]{0x01, 0x00}));
+                        if (bluetoothGatt.writeDescriptor(gattDescriptor005b))
+                            connectionState = NOTIFICATIONS_REQUESTED_b;
+
+                    } else if (descriptor.getUuid().toString().contentEquals("00002902-0000-1000-8000-00805f9b34fb") && connectionState == NOTIFICATIONS_REQUESTED_b) { System.out.println("descriptor b notifications: " + Arrays.toString(descriptor.getValue()));
+                        try { System.out.println("udane notifications_requested");
                             ByteArrayOutputStream output = new ByteArrayOutputStream();
                             output.write(new byte[]{0x01, 0x00});
-                            output.write(encryptionKey);
+                            output.write(encryptionKey); System.out.println("key_sent req: " + Arrays.toString(output.toByteArray()));
 
                             byte[] out = output.toByteArray();
-                            characteristicAuth.setValue(out);
+                            characteristicAuth.setValue(out);//characteristicAuth.setValue(new byte[]{0x01, 0x00});
                             if (bluetoothGatt.writeCharacteristic(characteristicAuth))
                                 connectionState = KEY_SENT;
                         } catch(IOException e){
@@ -225,10 +230,42 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 @Override
+                public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+                    if (characteristic.getUuid().toString().contentEquals("00000009-0000-3512-2118-0009af100700") && connectionState == KEY_SENT){ System.out.println(" key_sent resp: " + Arrays.toString(characteristic.getValue()));
+                        characteristicAuth.setValue(new byte[] {0x02, 0x00}); System.out.println("key_requested req: " + Arrays.toString(new byte[] {0x02, 0x00}));
+                        if (bluetoothGatt.writeCharacteristic(characteristicAuth))
+                            connectionState = KEY_REQUESTED;
+                    } else if (characteristic.getUuid().toString().contentEquals("00000009-0000-3512-2118-0009af100700") && connectionState == KEY_REQUESTED){
+                        byte[] response = Arrays.copyOfRange(characteristic.getValue(), 3, 19);
+                        System.out.println("Random key: " + Arrays.toString(response));
+                        System.out.println("Pełna odpowiedź: " + Arrays.toString(characteristic.getValue()));
+
+                        try {
+                            ByteArrayOutputStream output = new ByteArrayOutputStream();
+                            output.write(new byte[]{0x03, 0x00});
+                            output.write(encrypt(response));
+                            System.out.println("key_encrypt req: " + Arrays.toString(output.toByteArray()));
+
+                            byte[] out = output.toByteArray();
+                            System.out.println(out.length);
+                            characteristicAuth.setValue(out);
+                            if (bluetoothGatt.writeCharacteristic(characteristicAuth))
+                                connectionState = KEY_ENCRYPTED;
+                        } catch (IOException e){
+                            System.out.println(e.toString());
+                        }
+                    } else if (characteristic.getUuid().toString().contentEquals("00000009-0000-3512-2118-0009af100700") && connectionState == KEY_ENCRYPTED){
+                        System.out.println("key_encrypted res: " + Arrays.toString(characteristic.getValue()));
+
+                        //pobieranie danych sensora
+                        //new byte[]{0x01, 0x03, 0x19}
+                    }
+                }
+
+                @Override
                 public void onDescriptorRead(BluetoothGatt gatt,
                                               BluetoothGattDescriptor descriptor,
                                               int status){
-
                 }
             };
 
@@ -340,12 +377,47 @@ public class MainActivity extends AppCompatActivity {
     public void authButtonClick(View view){
         if (miband != null){
             System.out.println("authButtonClick");
-            BluetoothGattCharacteristic readGattCharacteristic = new BluetoothGattCharacteristic(UUID.fromString("00000020-0000-3512-2118-0009af100700"), BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ);
+            /*BluetoothGattCharacteristic readGattCharacteristic = new BluetoothGattCharacteristic(UUID.fromString("00000020-0000-3512-2118-0009af100700"), BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ);
             if (bluetoothGatt.readCharacteristic(readGattCharacteristic))
                 System.out.println("TRUE");
             readGattCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
             readGattCharacteristic.setValue(new byte[]{0x01, 0x00});
-            bluetoothGatt.writeCharacteristic(readGattCharacteristic);
+            bluetoothGatt.writeCharacteristic(readGattCharacteristic);*/
+            //pisanie notyfikacji characteristic
+            notifications.setValue(new byte[] {0x03, 0x01, 0x48, 0x69});
+            bluetoothGatt.writeCharacteristic(notifications);
+            //pisanie notyfikacji descriptor
+            //notificationsDesc.setValue(new byte[] {0x03, 0x01, 0x48, 0x69});
+            //bluetoothGatt.writeDescriptor(notificationsDesc);
+        }
+    }
+
+    private byte[] encrypt(byte[] data){
+        try {
+            byte[] bkey = key.getBytes("UTF-8");
+
+            SecretKeySpec skeySpec = new SecretKeySpec(bkey, "AES");//"AES/ECB/NoPadding");
+            Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
+            return cipher.doFinal(data);
+        } catch (UnsupportedEncodingException e){
+            System.out.println(e.toString());
+            return data;
+        } catch(java.security.NoSuchAlgorithmException e){
+            System.out.println(e.toString());
+            return data;
+        } catch(javax.crypto.NoSuchPaddingException e){
+            System.out.println(e.toString());
+            return data;
+        } catch(javax.crypto.BadPaddingException e){
+            System.out.println(e.toString());
+            return data;
+        } catch(javax.crypto.IllegalBlockSizeException e){
+            System.out.println(e.toString());
+            return data;
+        } catch(java.security.InvalidKeyException e){
+            System.out.println(e.toString());
+            return data;
         }
     }
 
