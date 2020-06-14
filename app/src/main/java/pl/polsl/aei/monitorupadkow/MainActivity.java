@@ -106,6 +106,10 @@ public class MainActivity extends AppCompatActivity {
     byte[] encryptionKey = "Kj6dUM1y3kBAPBey".getBytes();//new byte[]{(byte)0xf0, (byte)0xac, (byte)0xa3, (byte)0xb6, (byte)0xcd, 0x0e, (byte)0xc5, (byte)0x85, 0x37, 0x12, (byte)0x8f, 0x48, 0x4f, 0x68, 0x7b, (byte)0xb5};
     String key = "Kj6dUM1y3kBAPBey"; //8VoK4rpNZjZ04oh4
 
+    List<byte[]> queue;
+
+    private int queueCounter = 0;
+
     private final BluetoothGattCallback gattCallback =
             new BluetoothGattCallback() {
                 @Override
@@ -323,10 +327,18 @@ public class MainActivity extends AppCompatActivity {
                         //pobieranie danych sensora
                         //new byte[]{0x01, 0x03, 0x19}
                     } else {
-                        System.out.println("onCharacteristicChanged, value: " + Arrays.toString(characteristic.getValue()) + ", length: " + characteristic.getValue().length + " uns. bajt[1] " + (characteristic.getValue()[1] & 0xFF));
+                        //System.out.println("onCharacteristicChanged, value: " + Arrays.toString(characteristic.getValue()) + ", length: " + characteristic.getValue().length + " uns. bajt[1] " + (characteristic.getValue()[1] & 0xFF));
+                        //System.out.println(Arrays.toString(characteristic.getValue()));
+                        //if(characteristic.getValue().length == 20)
+                            //parseAccelerationData(characteristic.getValue());
+                        if (characteristic.getValue()[0] == 1) {
+                            parseAccelerationData(characteristic.getValue());
+                        }
+                        //if(characteristic.getValue()[0] == 1) {
+                            //parseAccelerationData(characteristic.getValue());
+                            //System.out.println(characteristic.getValue()[1] & 0xFF);
+                        //}
                     }
-                    if ( (characteristic.getValue().length == 20 && characteristic.getValue()[0] != 1) || (characteristic.getValue().length == 14 && characteristic.getValue()[0] != 2) || (characteristic.getValue().length == 11 && characteristic.getValue()[0] != -128))
-                        System.out.println("X");
                 }
 
                 @Override
@@ -346,15 +358,18 @@ public class MainActivity extends AppCompatActivity {
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 // Discovery has found a device. Get the BluetoothDevice
                 // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);System.out.println("x");
+                String deviceName = device.getName();System.out.println("y");
+                //String deviceHardwareAddress = device.getAddress(); // MAC address
                 if (deviceName != null && device.getName().contentEquals("Mi Band 3")) {
                     miband = device;
+                    bluetoothGatt = miband.connectGatt(context, true, gattCallback);
+                    Toast.makeText(context, "ŁĄCZENIE", Toast.LENGTH_SHORT).show();
+                    bluetoothGatt.requestMtu(33);
                     //Toast.makeText(context, "JEST MI BAND", Toast.LENGTH_SHORT).show();
                 }
-                list.add(deviceName);
-                adapter.notifyDataSetChanged();
+                //list.add(deviceName);
+                //adapter.notifyDataSetChanged();
             }
         }
 
@@ -365,6 +380,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        queue = new ArrayList<>();
+
         setContentView(R.layout.activity_main);
 
         imageView = findViewById(R.id.btIcon);
@@ -427,11 +445,13 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
             }
         } else {
-            Toast.makeText(this, "MI BAND POŁĄCZONY: " + bluetoothGatt.getDevice().getName() + connectionState, Toast.LENGTH_SHORT).show();
+            bluetoothGatt = null;
+            connectionState = STATE_DISCONNECTED;
+            //Toast.makeText(this, "MI BAND POŁĄCZONY: " + bluetoothGatt.getDevice().getName() + connectionState, Toast.LENGTH_SHORT).show();
             //Toast.makeText(this, bluetoothGatt.getDevice().getUuids().toString(), Toast.LENGTH_SHORT).show();
         }
     }
-
+/*
     public void connectButtonClick(View view){
         if (miband != null){
             bluetoothGatt = miband.connectGatt(this, true, gattCallback);
@@ -440,7 +460,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, "NIE ZNALEZIONO MI BAND", Toast.LENGTH_SHORT).show();
         }
-    }
+    }*/
 
     public void authButtonClick(View view){
         if (miband != null){
@@ -452,7 +472,7 @@ public class MainActivity extends AppCompatActivity {
             readGattCharacteristic.setValue(new byte[]{0x01, 0x00});
             bluetoothGatt.writeCharacteristic(readGattCharacteristic);*/
             //pisanie notyfikacji characteristic
-            gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x48, 0x69});
+            gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x50, 0x4f, 0x4c, 0x53, 0x4c, 0x2d, 0x32, 0x30, 0x32, 0x30}); //80, 79, 76, 83, 76, 45, 50, 48, 50, 48
             bluetoothGatt.writeCharacteristic(gattCharacteristicNotifications);
         }
     }
@@ -483,6 +503,27 @@ public class MainActivity extends AppCompatActivity {
         } catch(java.security.InvalidKeyException e){
             System.out.println(e.toString());
             return data;
+        }
+    }
+
+    private void parseAccelerationData(byte[] data){
+        int x, y, z;
+        int potx, poty, potz;
+        byte coefX, coefY, coefZ;
+        for(int i = 0; i < (data.length -2)/6;i++){
+            /*x = data[3+i*6] > -1 ? data[2+i*6] & 0xFF : data[2+i*6];
+            potx = data[3+i*6];
+            y = data[5+i*6] > -1 ? data[4+i*6] & 0xFF : data[4+i*6];
+            poty = data[5+i*6];
+            z = data[7+i*6] > -1 ? data[6+i*6] & 0xFF : data[6+i*6];
+            potz = data[7+i*6];*/
+            x = data[3+i*6] < 0 ? (data[2+i*6] & 0xff) - 256 - (~data[3+i*6] << 8) : (data[2+i*6] & 0xFF) + (data[3+i*6] << 8);
+            y = data[5+i*6] < 0 ? (data[4+i*6] & 0xff) - 256 - (~data[5+i*6] << 8) : (data[4+i*6] & 0xFF) + (data[5+i*6] << 8);
+            z = data[7+i*6] < 0 ? (data[6+i*6] & 0xff) - 256 - (~data[7+i*6] << 8) : (data[6+i*6] & 0xFF) + (data[7+i*6] << 8);
+            queue.add(Arrays.copyOfRange(data,  2 + i * 6, 8 + i * 6));
+            System.out.println("[" + x + ", " + data[3+i*6] + ", " + y + ", " + data[5+i*6] + ", " + z + ", " + data[7+i*6] + "]");
+            //System.out.println(Arrays.toString(Arrays.copyOfRange(data, 2 + i * 6, 8 + i * 6)));
+            queueCounter++;
         }
     }
 
