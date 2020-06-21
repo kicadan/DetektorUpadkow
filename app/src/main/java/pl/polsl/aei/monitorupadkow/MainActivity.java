@@ -15,6 +15,11 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -24,11 +29,25 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.components.LimitLine;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
+import com.github.mikephil.charting.utils.ColorTemplate;
+import com.github.mikephil.charting.utils.EntryXComparator;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -39,13 +58,11 @@ import javax.crypto.spec.SecretKeySpec;
 public class MainActivity extends AppCompatActivity {
 
     ImageView imageView;
-    ListView devices;
+
     private BluetoothAdapter btAdapter;
     private Set<BluetoothDevice> bluetoothDevices;
     private BluetoothDevice miband;
     private BluetoothGatt bluetoothGatt;
-    private BluetoothGattService gattServiceSensor;
-    private BluetoothGattService gattServiceHeartMonitor;
     private BluetoothGattCharacteristic gattCharacteristicSensContr;
     private BluetoothGattCharacteristic gattCharacteristicSensMeasure;
     private BluetoothGattCharacteristic gattCharacteristicHRC;
@@ -100,34 +117,59 @@ public class MainActivity extends AppCompatActivity {
             "pl.polsl.aei.monitorupadkow.EXTRA_DATA";
 
 
-    ArrayList<String> list;
-    ArrayAdapter adapter;
-
     byte[] encryptionKey = "Kj6dUM1y3kBAPBey".getBytes();//new byte[]{(byte)0xf0, (byte)0xac, (byte)0xa3, (byte)0xb6, (byte)0xcd, 0x0e, (byte)0xc5, (byte)0x85, 0x37, 0x12, (byte)0x8f, 0x48, 0x4f, 0x68, 0x7b, (byte)0xb5};
     String key = "Kj6dUM1y3kBAPBey"; //8VoK4rpNZjZ04oh4
 
-    List<byte[]> queue;
+    Integer[] queueX;
+    Integer[] queueY;
+    Integer[] queueZ;
 
+    float[] queueAccX;
+    float[] queueAccY;
+    float[] queueAccZ;
+
+    private LineChart chartView;
+
+    private static final int queueCapacity = 1500;
     private int queueCounter = 0;
+    private int queueAccCounter = 0;
+
+    private SensorManager sensorManager;
+    private Sensor sensor;
+
+
+    SensorEventListener gyroscopeSensorListener = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent sensorEvent) {
+            // More code goes here
+            queueAccX[queueAccCounter] = sensorEvent.values[0];
+            queueAccY[queueAccCounter] = sensorEvent.values[1];
+            queueAccZ[queueAccCounter] = sensorEvent.values[2];
+            queueAccCounter = (queueAccCounter + 1) % queueCapacity;
+            System.out.println("x: " + sensorEvent.values[0] + ", y: " + sensorEvent.values[1] + ", z: " + sensorEvent.values[2]);
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int i) {
+            System.out.println("onAccChanged: " + sensor.getName() + ", i: " + i);
+        }
+    };
 
     private final BluetoothGattCallback gattCallback =
             new BluetoothGattCallback() {
                 @Override
                 public void onConnectionStateChange(BluetoothGatt gatt, int status,
                                                     int newState) {
-                    //System.out.println("onConnectionStateChange");
                     String intentAction;
                     bluetoothGatt = gatt;
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         intentAction = ACTION_GATT_CONNECTED;
                         connectionState = STATE_CONNECTED;
-                        //System.out.println("Connection state change - connected: " + newState + " " + status);
                         gatt.discoverServices();
 
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         intentAction = ACTION_GATT_DISCONNECTED;
                         connectionState = STATE_DISCONNECTED;
-                        //System.out.println("Connection state change - disconnected: "  + newState + " " + status);
                     }
                     gatt.discoverServices();
                 }
@@ -135,71 +177,44 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 // New services discovered
                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-                    //System.out.println("onServiceDiscovered");
-                    /*if (status == BluetoothGatt.GATT_SUCCESS) {
-                        System.out.println("Service with success discovered: " + status);
-                    } else {
-                        System.out.println("Service discovered but else: " + status);
-                    }*/
                     List<BluetoothGattService> services = gatt.getServices();
                     for (BluetoothGattService service : services) {
-                        //System.out.println("Service: " + service.getUuid().toString());
                         for (final BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_AUTHORIZATION)){ //authorization
-                                //System.out.println("Auth 0x0050 i 1 znaleziona");
                                 characteristicAuthorization = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(characteristicAuthorization, true);
                                 gattDescriptor0051 = characteristic.getDescriptor(UUID.fromString(NOTIFICATION_DESCRIPTOR_2902)); //0x2902
                                 bluetoothGatt.readCharacteristic(characteristicAuthorization); System.out.println("success");
                                 connectionState = CHARACTERISTIC_READ;
-                                //System.out.println("characteristic read req");
                             }
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_AUTHORIZATION_B)){ //authorization
-                                //System.out.println("Auth 0x005b i a znaleziona");
                                 characteristicAuthorizationB = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(characteristicAuthorizationB, true);
                                 gattDescriptor005b = characteristic.getDescriptor(UUID.fromString(NOTIFICATION_DESCRIPTOR_2902)); //0x2902
-                                /*for(BluetoothGattDescriptor desc : characteristic.getDescriptors())
-                                    System.out.println(desc.getUuid());*/
                             }
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_NOTIFICATION)){
-                                //System.out.println("Jest notification service");
                                 gattCharacteristicNotifications = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(gattCharacteristicNotifications, true);
-                                /*for(BluetoothGattDescriptor desc: gattCharacteristicNotifications.getDescriptors()){
-                                    System.out.println(desc.getUuid());
-                                }*/
                             }
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_HEART_RATE_CONTROL)){
-                                //System.out.println("Jest HRC");
                                 gattCharacteristicHRC = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(gattCharacteristicHRC, true);
                             }
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_HEART_RATE_MEASURE)){
-                                //System.out.println("Jest HRM");
                                 gattCharacteristicHRM = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(gattCharacteristicHRM, true);
                                 gattDescriptorHRM = characteristic.getDescriptor(UUID.fromString(NOTIFICATION_DESCRIPTOR_2902));
                             }
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_SENSOR_CONTROL)){
-                                //System.out.println("Jest Sensor Control");
                                 gattCharacteristicSensContr = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(gattCharacteristicSensContr, true);
                                 gattDescriptorSensorContr = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-                                /*for(BluetoothGattDescriptor desc: gattCharacteristicSensContr.getDescriptors()){
-                                    System.out.println(desc.getUuid());
-                                }*/
                             }
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_SENSOR_MEASURE)){
-                                //System.out.println("Jest Sensor Measure");
                                 gattCharacteristicSensMeasure = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(gattCharacteristicSensMeasure, true);
                                 gattDescriptorSensorMeasure = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-                                /*for(BluetoothGattDescriptor desc: gattCharacteristicSensContr.getDescriptors()){
-                                    System.out.println(desc.getUuid());
-                                }*/
                             }
-                            //System.out.println("Characteristic: " + characteristic.getUuid().toString());
                         }
                     }
                 }
@@ -209,11 +224,8 @@ public class MainActivity extends AppCompatActivity {
                 public void onCharacteristicRead(BluetoothGatt gatt,
                                                  BluetoothGattCharacteristic characteristic,
                                                  int status) {
-                    //System.out.println("onCharacteristicRead");
                     if (characteristic.getUuid().toString().contentEquals(CHARACTERISTIC_AUTHORIZATION) && connectionState == CHARACTERISTIC_READ){
-                        //System.out.println("On characteristic read: " + Arrays.toString(characteristic.getValue()));
                         gattDescriptor0051.setValue(new byte[]{0x01, 0x00});
-                        //System.out.println("notifications_requested req: " + Arrays.toString(new byte[]{0x01, 0x00}));
                         if (bluetoothGatt.writeDescriptor(gattDescriptor0051))
                             connectionState = NOTIFICATIONS_REQUESTED_0;
                     }
@@ -222,22 +234,11 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status)
                 {
-                    //System.out.println("onCharacteristicWrite " + characteristic.getUuid() + ", val: " + Arrays.toString(characteristic.getValue()));
-                    /*if (characteristic.getUuid().toString().equals(CHARACTERISTIC_HEART_RATE_CONTROL) && Arrays.equals(characteristic.getValue(), new byte[] {0x15, 0x02, 0x00})){
-                        System.out.println("GIT");
-                        gattCharacteristicHRC.setValue(new byte[]{0x15, 0x01, 0x00});
-                        bluetoothGatt.writeCharacteristic(gattCharacteristicHRC);
-                    } else if (characteristic.getUuid().toString().equals(CHARACTERISTIC_HEART_RATE_CONTROL) && Arrays.equals(characteristic.getValue(), new byte[] {0x15, 0x01, 0x00})){
-                        System.out.println("GIT2");
-                        gattCharacteristicSensContr.setValue(new byte[]{0x01, 0x03, 0x19});
-                        bluetoothGatt.writeCharacteristic(gattCharacteristicSensContr);
-                    } else */if (characteristic.getUuid().toString().equals(CHARACTERISTIC_SENSOR_CONTROL) && Arrays.equals(characteristic.getValue(), new byte[]{0x01, 0x03, 0x19})) {
-                        //System.out.println("GIT3");
+                    if (characteristic.getUuid().toString().equals(CHARACTERISTIC_SENSOR_CONTROL) && Arrays.equals(characteristic.getValue(), new byte[]{0x01, 0x03, 0x19})) {
                         gattDescriptorSensorContr.setValue(new byte[]{0x00, 0x00});
                         if (bluetoothGatt.writeDescriptor(gattDescriptorSensorContr))
                             connectionState = SENSOR_CONTROL_REQUESTED2;
                     } else if (characteristic.getUuid().toString().equals(CHARACTERISTIC_HEART_RATE_CONTROL) && Arrays.equals(characteristic.getValue(), new byte[]{0x15, 0x01, 0x01})){
-                        //System.out.println("GIT5");
                         gattCharacteristicSensContr.setValue(new byte[]{0x02});//0x00, 0x02});
                         bluetoothGatt.writeCharacteristic(gattCharacteristicSensContr);
                     }
@@ -248,47 +249,36 @@ public class MainActivity extends AppCompatActivity {
                 public void onDescriptorWrite(BluetoothGatt gatt,
                                               BluetoothGattDescriptor descriptor,
                                               int status){
-                    //System.out.println("onDescriptorWrite: " + descriptor.getUuid() + ", val: " + Arrays.toString(descriptor.getValue()));
                     if (descriptor.getUuid().toString().contentEquals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == NOTIFICATIONS_REQUESTED_0) {
-                        //System.out.println("On notifications descriptor_0 write: " + Arrays.toString(descriptor.getValue()));
                         gattDescriptor005b.setValue(new byte[]{0x01, 0x00});
-                        //System.out.println("notifications_requested_b req: " + Arrays.toString(new byte[]{0x01, 0x00}));
                         if (bluetoothGatt.writeDescriptor(gattDescriptor005b))
                             connectionState = NOTIFICATIONS_REQUESTED_b;
 
-                    } else if (descriptor.getUuid().toString().contentEquals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == NOTIFICATIONS_REQUESTED_b) { //System.out.println("descriptor b notifications: " + Arrays.toString(descriptor.getValue()));
-                        try { //System.out.println("udane notifications_requested");
+                    } else if (descriptor.getUuid().toString().contentEquals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == NOTIFICATIONS_REQUESTED_b) {
+                        try {
                             ByteArrayOutputStream output = new ByteArrayOutputStream();
                             output.write(new byte[]{0x01, 0x00});
-                            output.write(encryptionKey); //System.out.println("key_sent req: " + Arrays.toString(output.toByteArray()));
+                            output.write(encryptionKey);
 
                             byte[] out = output.toByteArray();
-                            characteristicAuthorizationB.setValue(out);//characteristicAuth.setValue(new byte[]{0x01, 0x00});
+                            characteristicAuthorizationB.setValue(out);
                             if (bluetoothGatt.writeCharacteristic(characteristicAuthorizationB))
                                 connectionState = KEY_SENT;
                         } catch(IOException e){
                             System.out.println("Nie udało się stworzyć tablicy bajtów");
                         }
-                    }/* else if (descriptor.getUuid().toString().equals(NOTIFICATION_DESCRIPTOR_2902) && Arrays.equals(descriptor.getValue(), new byte[] {0x01, 0x00})){
-                        System.out.println("GIT42");
-                        gattCharacteristicHRC.setValue(new byte[]{0x15, 0x01, 0x01});
-                        bluetoothGatt.writeCharacteristic(gattCharacteristicHRC);
-                    }*/ else if (descriptor.getUuid().toString().equals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == SENSOR_CONTROL_REQUESTED2){
-                        //System.out.println("GIT41");
+                    } else if (descriptor.getUuid().toString().equals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == SENSOR_CONTROL_REQUESTED2){
                         gattDescriptorHRM.setValue(new byte[]{0x01, 0x00});
                         if (bluetoothGatt.writeDescriptor(gattDescriptorHRM))
                             connectionState = HRD_REQUESTED;
                     } else if (descriptor.getUuid().toString().equals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == SENSOR_DATA_REQUESTED){
-                        //System.out.println("*GIT11");
                         gattDescriptorSensorContr.setValue(new byte[]{0x01, 0x00});
                         if (bluetoothGatt.writeDescriptor(gattDescriptorSensorContr))
                             connectionState = SENSOR_CONTROL_REQUESTED;
                     } else if (descriptor.getUuid().toString().equals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == SENSOR_CONTROL_REQUESTED){
-                        //System.out.println("*GIT12");
                         gattCharacteristicSensContr.setValue(new byte[]{0x01, 0x03, 0x19});
                         bluetoothGatt.writeCharacteristic(gattCharacteristicSensContr);
                     } else if (descriptor.getUuid().toString().equals(NOTIFICATION_DESCRIPTOR_2902) && connectionState == HRD_REQUESTED){
-                        //System.out.println("HRD REQ RESP");
                         gattCharacteristicHRC.setValue(new byte[]{0x15, 0x01, 0x01});
                         if (bluetoothGatt.writeCharacteristic(gattCharacteristicHRC))
                            connectionState = HRC_REQUESTED;
@@ -297,47 +287,32 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-                    if (characteristic.getUuid().toString().contentEquals(CHARACTERISTIC_AUTHORIZATION_B) && connectionState == KEY_SENT){ //System.out.println(" key_sent resp: " + Arrays.toString(characteristic.getValue()));
-                        characteristicAuthorizationB.setValue(new byte[] {0x02, 0x00}); //System.out.println("key_requested req: " + Arrays.toString(new byte[] {0x02, 0x00}));
+                    if (characteristic.getUuid().toString().contentEquals(CHARACTERISTIC_AUTHORIZATION_B) && connectionState == KEY_SENT){
+                        characteristicAuthorizationB.setValue(new byte[] {0x02, 0x00});
                         if (bluetoothGatt.writeCharacteristic(characteristicAuthorizationB))
                             connectionState = KEY_REQUESTED;
                     } else if (characteristic.getUuid().toString().contentEquals(CHARACTERISTIC_AUTHORIZATION_B) && connectionState == KEY_REQUESTED){
                         byte[] response = Arrays.copyOfRange(characteristic.getValue(), 3, 19);
-                        //System.out.println("Random key: " + Arrays.toString(response));
-                        //System.out.println("Pełna odpowiedź: " + Arrays.toString(characteristic.getValue()));
 
                         try {
                             ByteArrayOutputStream output = new ByteArrayOutputStream();
                             output.write(new byte[]{0x03, 0x00});
                             output.write(encrypt(response));
-                            //System.out.println("key_encrypt req: " + Arrays.toString(output.toByteArray()));
 
                             byte[] out = output.toByteArray();
-                            //System.out.println(out.length);
                             characteristicAuthorizationB.setValue(out);
                             if (bluetoothGatt.writeCharacteristic(characteristicAuthorizationB))
                                 connectionState = KEY_ENCRYPTED;
                         } catch (IOException e){
-                            //System.out.println(e.toString());
+                            System.out.println(e.toString());
                         }
                     } else if (characteristic.getUuid().toString().contentEquals(CHARACTERISTIC_AUTHORIZATION_B) && connectionState == KEY_ENCRYPTED) {
                         if (Arrays.equals(characteristic.getValue(), new byte[]{0x10, 0x03, 0x01}))
                             System.out.println("ZAUTORYZOWANO");
-
-                        //pobieranie danych sensora
-                        //new byte[]{0x01, 0x03, 0x19}
                     } else {
-                        //System.out.println("onCharacteristicChanged, value: " + Arrays.toString(characteristic.getValue()) + ", length: " + characteristic.getValue().length + " uns. bajt[1] " + (characteristic.getValue()[1] & 0xFF));
-                        //System.out.println(Arrays.toString(characteristic.getValue()));
-                        //if(characteristic.getValue().length == 20)
-                            //parseAccelerationData(characteristic.getValue());
                         if (characteristic.getValue()[0] == 1) {
                             parseAccelerationData(characteristic.getValue());
                         }
-                        //if(characteristic.getValue()[0] == 1) {
-                            //parseAccelerationData(characteristic.getValue());
-                            //System.out.println(characteristic.getValue()[1] & 0xFF);
-                        //}
                     }
                 }
 
@@ -366,10 +341,7 @@ public class MainActivity extends AppCompatActivity {
                     bluetoothGatt = miband.connectGatt(context, true, gattCallback);
                     Toast.makeText(context, "ŁĄCZENIE", Toast.LENGTH_SHORT).show();
                     bluetoothGatt.requestMtu(33);
-                    //Toast.makeText(context, "JEST MI BAND", Toast.LENGTH_SHORT).show();
                 }
-                //list.add(deviceName);
-                //adapter.notifyDataSetChanged();
             }
         }
 
@@ -381,12 +353,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        queue = new ArrayList<>();
+        //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
+        queueX = new Integer[queueCapacity];
+        queueY = new Integer[queueCapacity];
+        queueZ = new Integer[queueCapacity];
+
+        //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
+        queueAccX = new float[queueCapacity];
+        queueAccY = new float[queueCapacity];
+        queueAccZ = new float[queueCapacity];
 
         setContentView(R.layout.activity_main);
 
         imageView = findViewById(R.id.btIcon);
-        devices = findViewById(R.id.btDevicesList);
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();
 
@@ -400,10 +379,13 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
-        list = new ArrayList<>();
-
-        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, list);
-        devices.setAdapter(adapter);
+        chartView = findViewById(R.id.chartView);
+        setupChart();
+        setupAxes();
+        setupData();
+        setupData();
+        setupData();
+        setLegend();
 
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         registerReceiver(receiver, filter);
@@ -424,6 +406,112 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void setupChart() {
+        // disable description text
+        chartView.getDescription().setEnabled(false);
+        // enable touch gestures
+        chartView.setTouchEnabled(true);
+        // if disabled, scaling can be done on x- and y-axis separately
+        chartView.setPinchZoom(true);
+        // enable scaling
+        chartView.setScaleEnabled(true);
+        chartView.setDrawGridBackground(false);
+    }
+
+    private void setupAxes() {
+        XAxis xl = chartView.getXAxis();
+        xl.setTextColor(Color.GREEN);
+        xl.setDrawGridLines(false);
+        xl.setAvoidFirstLastClipping(true);
+        xl.setEnabled(true);
+
+        YAxis leftAxis = chartView.getAxisLeft();
+        leftAxis.setTextColor(Color.BLUE);
+        leftAxis.setAxisMaximum(1100);
+        leftAxis.setAxisMinimum(-1100);
+        leftAxis.setDrawGridLines(true);
+
+        YAxis rightAxis = chartView.getAxisRight();
+        rightAxis.setEnabled(false);
+    }
+
+    private void setupData() {
+        LineData data = new LineData();
+        data.setValueTextColor(Color.BLACK);
+
+        // add empty data
+        chartView.setData(data);
+    }
+
+    private void setLegend() {
+        // get the legend (only possible after setting data)
+        Legend l = chartView.getLegend();
+
+        // modify the legend ...
+        l.setForm(Legend.LegendForm.CIRCLE);
+        l.setTextColor(Color.BLACK);
+    }
+
+    private LineDataSet createSet(int axis) {
+        LineDataSet set;
+        if (axis == 1) {
+            set = new LineDataSet(null, "X axis");
+            set.setColors(Color.GREEN);
+        } else if (axis == 2){
+            set = new LineDataSet(null, "Y axis");
+            set.setColors(Color.RED);
+        } else {
+            set = new LineDataSet(null, "Z axis");
+            set.setColors(Color.BLUE);
+        }
+        set.setAxisDependency(YAxis.AxisDependency.LEFT);
+        set.setCircleColor(Color.BLACK);
+        set.setLineWidth(2f);
+        set.setCircleRadius(4f);
+        set.setValueTextColor(Color.BLACK);
+        set.setValueTextSize(10f);
+        // To show values of each point
+        set.setDrawValues(true);
+
+        return set;
+    }
+
+    private void addEntry(int value, int axis) {
+        LineData data = chartView.getData();
+
+        if (data != null) {
+            ILineDataSet set;
+            if(axis == 1)
+                set = data.getDataSetByIndex(0);
+            else if (axis == 2)
+                set = data.getDataSetByIndex(1);
+            else //(axis == 3)
+                set = data.getDataSetByIndex(2);
+
+            if (set == null) {
+                set = createSet(axis);
+                data.addDataSet(set);
+            }
+
+            if (axis == 1)
+                data.addEntry(new Entry(set.getEntryCount(), value), 0);
+            else if (axis == 2)
+                data.addEntry(new Entry(set.getEntryCount(), value), 1);
+            else
+                data.addEntry(new Entry(set.getEntryCount(), value), 2);
+
+            // let the chart know it's data has changed
+            data.notifyDataChanged();
+            chartView.notifyDataSetChanged();
+            chartView.invalidate();
+
+            // limit the number of visible entries
+            chartView.setVisibleXRangeMaximum(20);
+
+            // move to the latest entry
+            chartView.moveViewToX(data.getEntryCount());
+        }
+    }
 
     public void mainButtonOnClick(View view) {
         if (bluetoothGatt == null) {
@@ -436,9 +524,6 @@ public class MainActivity extends AppCompatActivity {
                 if (btAdapter.startDiscovery()) {
                     Toast.makeText(this, "ROZPOCZETO SKANOWANIE", Toast.LENGTH_SHORT).show();
                 }
-                for (BluetoothDevice btDevice : bluetoothDevices) {
-                    list.add(btDevice.getName());
-                }
             } else if (!btAdapter.isEnabled()) {
                 Toast.makeText(this, "BLUETOOTH JEST WYŁĄCZONE", Toast.LENGTH_SHORT).show();
                 Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -447,32 +532,21 @@ public class MainActivity extends AppCompatActivity {
         } else {
             bluetoothGatt = null;
             connectionState = STATE_DISCONNECTED;
-            //Toast.makeText(this, "MI BAND POŁĄCZONY: " + bluetoothGatt.getDevice().getName() + connectionState, Toast.LENGTH_SHORT).show();
-            //Toast.makeText(this, bluetoothGatt.getDevice().getUuids().toString(), Toast.LENGTH_SHORT).show();
         }
     }
-/*
-    public void connectButtonClick(View view){
-        if (miband != null){
-            bluetoothGatt = miband.connectGatt(this, true, gattCallback);
-            Toast.makeText(this, "ŁĄCZENIE", Toast.LENGTH_SHORT).show();
-            bluetoothGatt.requestMtu(33);
-        } else {
-            Toast.makeText(this, "NIE ZNALEZIONO MI BAND", Toast.LENGTH_SHORT).show();
-        }
-    }*/
+
+    public void requestAccelerometer(View view){
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); //Sensor.TYPE_GYROSCOPE
+
+        sensorManager.registerListener(gyroscopeSensorListener,
+                sensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
 
     public void authButtonClick(View view){
         if (miband != null){
-            /*System.out.println("authButtonClick");
-            BluetoothGattCharacteristic readGattCharacteristic = new BluetoothGattCharacteristic(UUID.fromString(CHARACTERISTIC_AUTHORIZATION), BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ);
-            if (bluetoothGatt.readCharacteristic(readGattCharacteristic))
-                System.out.println("TRUE");
-            readGattCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-            readGattCharacteristic.setValue(new byte[]{0x01, 0x00});
-            bluetoothGatt.writeCharacteristic(readGattCharacteristic);*/
             //pisanie notyfikacji characteristic
-            gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x50, 0x4f, 0x4c, 0x53, 0x4c, 0x2d, 0x32, 0x30, 0x32, 0x30}); //80, 79, 76, 83, 76, 45, 50, 48, 50, 48
+            gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x50, 0x4f, 0x4c, 0x53, 0x4c, 0x2d, 0x32, 0x30, 0x32, 0x30});
             bluetoothGatt.writeCharacteristic(gattCharacteristicNotifications);
         }
     }
@@ -481,7 +555,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             byte[] bkey = key.getBytes("UTF-8");
 
-            SecretKeySpec skeySpec = new SecretKeySpec(bkey, "AES");//"AES/ECB/NoPadding");
+            SecretKeySpec skeySpec = new SecretKeySpec(bkey, "AES");
             Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
             return cipher.doFinal(data);
@@ -507,32 +581,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void parseAccelerationData(byte[] data){
-        int x, y, z;
-        int potx, poty, potz;
-        byte coefX, coefY, coefZ;
         for(int i = 0; i < (data.length -2)/6;i++){
-            /*x = data[3+i*6] > -1 ? data[2+i*6] & 0xFF : data[2+i*6];
-            potx = data[3+i*6];
-            y = data[5+i*6] > -1 ? data[4+i*6] & 0xFF : data[4+i*6];
-            poty = data[5+i*6];
-            z = data[7+i*6] > -1 ? data[6+i*6] & 0xFF : data[6+i*6];
-            potz = data[7+i*6];*/
-            x = data[3+i*6] < 0 ? (data[2+i*6] & 0xff) - 256 - (~data[3+i*6] << 8) : (data[2+i*6] & 0xFF) + (data[3+i*6] << 8);
-            y = data[5+i*6] < 0 ? (data[4+i*6] & 0xff) - 256 - (~data[5+i*6] << 8) : (data[4+i*6] & 0xFF) + (data[5+i*6] << 8);
-            z = data[7+i*6] < 0 ? (data[6+i*6] & 0xff) - 256 - (~data[7+i*6] << 8) : (data[6+i*6] & 0xFF) + (data[7+i*6] << 8);
-            queue.add(Arrays.copyOfRange(data,  2 + i * 6, 8 + i * 6));
+            final int x = data[3+i*6] < 0 ? (data[2+i*6] & 0xff) - 256 - (~data[3+i*6] << 8) : (data[2+i*6] & 0xFF) + (data[3+i*6] << 8);
+            final int y = data[5+i*6] < 0 ? (data[4+i*6] & 0xff) - 256 - (~data[5+i*6] << 8) : (data[4+i*6] & 0xFF) + (data[5+i*6] << 8);
+            final int z = data[7+i*6] < 0 ? (data[6+i*6] & 0xff) - 256 - (~data[7+i*6] << 8) : (data[6+i*6] & 0xFF) + (data[7+i*6] << 8);
+            queueX[queueCounter] = x;
+            queueY[queueCounter] = y;
+            queueZ[queueCounter] = z;
             System.out.println("[" + x + ", " + data[3+i*6] + ", " + y + ", " + data[5+i*6] + ", " + z + ", " + data[7+i*6] + "]");
-            //System.out.println(Arrays.toString(Arrays.copyOfRange(data, 2 + i * 6, 8 + i * 6)));
-            queueCounter++;
+            queueCounter = (queueCounter + 1) % queueCapacity;
+
+            //draw mi band chart
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    addEntry(x, 1);
+                    addEntry(y, 2);
+                    addEntry(z, 3);
+                }
+            });
         }
     }
 
     public void startSensor(View view){
         if (miband != null){
-            /*System.out.println("startSensor");
-            gattCharacteristicHRC.setValue(new byte[]{0x15, 0x02, 0x00});
-            if (bluetoothGatt.writeCharacteristic(gattCharacteristicHRC))
-                connectionState = SENSOR_REQUESTED;*/
             gattDescriptorSensorMeasure.setValue(new byte[]{0x01, 0x00});
             if (bluetoothGatt.writeDescriptor(gattDescriptorSensorMeasure))
                 connectionState = SENSOR_DATA_REQUESTED;
