@@ -20,34 +20,27 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Handler;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.Toast;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Legend;
-import com.github.mikephil.charting.components.LimitLine;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
-import com.github.mikephil.charting.utils.ColorTemplate;
-import com.github.mikephil.charting.utils.EntryXComparator;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -105,6 +98,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String NOTIFICATION_DESCRIPTOR_2902 = "00002902-0000-1000-8000-00805f9b34fb";
 
 
+    private static final int queueCapacity = 200; //over 6 seconds of mi band use
+
     public final static String ACTION_GATT_CONNECTED =
             "pl.polsl.aei.monitorupadkow.ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_DISCONNECTED =
@@ -120,19 +115,10 @@ public class MainActivity extends AppCompatActivity {
     byte[] encryptionKey = "Kj6dUM1y3kBAPBey".getBytes();//new byte[]{(byte)0xf0, (byte)0xac, (byte)0xa3, (byte)0xb6, (byte)0xcd, 0x0e, (byte)0xc5, (byte)0x85, 0x37, 0x12, (byte)0x8f, 0x48, 0x4f, 0x68, 0x7b, (byte)0xb5};
     String key = "Kj6dUM1y3kBAPBey"; //8VoK4rpNZjZ04oh4
 
-    Integer[] queueX;
-    Integer[] queueY;
-    Integer[] queueZ;
-
-    float[] queueAccX;
-    float[] queueAccY;
-    float[] queueAccZ;
-
     private LineChart chartView;
+    private Qualifier qualifier;
 
-    private static final int queueCapacity = 1500;
-    private int queueCounter = 0;
-    private int queueAccCounter = 0;
+    private boolean sensorsOn = false;
 
     private SensorManager sensorManager;
     private Sensor sensor;
@@ -142,10 +128,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onSensorChanged(SensorEvent sensorEvent) {
             // More code goes here
-            queueAccX[queueAccCounter] = sensorEvent.values[0];
-            queueAccY[queueAccCounter] = sensorEvent.values[1];
-            queueAccZ[queueAccCounter] = sensorEvent.values[2];
-            queueAccCounter = (queueAccCounter + 1) % queueCapacity;
+            qualifier.qualifyPhoneAccelerometer(new double[]{sensorEvent.values[0], sensorEvent.values[1], sensorEvent.values[2]});
             System.out.println("x: " + sensorEvent.values[0] + ", y: " + sensorEvent.values[1] + ", z: " + sensorEvent.values[2]);
         }
 
@@ -333,8 +316,8 @@ public class MainActivity extends AppCompatActivity {
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 // Discovery has found a device. Get the BluetoothDevice
                 // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);System.out.println("x");
-                String deviceName = device.getName();System.out.println("y");
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                String deviceName = device.getName();
                 //String deviceHardwareAddress = device.getAddress(); // MAC address
                 if (deviceName != null && device.getName().contentEquals("Mi Band 3")) {
                     miband = device;
@@ -353,15 +336,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
-        queueX = new Integer[queueCapacity];
-        queueY = new Integer[queueCapacity];
-        queueZ = new Integer[queueCapacity];
-
-        //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
-        queueAccX = new float[queueCapacity];
-        queueAccY = new float[queueCapacity];
-        queueAccZ = new float[queueCapacity];
+        qualifier = new Qualifier(queueCapacity);
 
         setContentView(R.layout.activity_main);
 
@@ -535,12 +510,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void requestAccelerometer(View view){
-        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); //Sensor.TYPE_GYROSCOPE
-
-        sensorManager.registerListener(gyroscopeSensorListener,
-                sensor, SensorManager.SENSOR_DELAY_NORMAL);
+    public void startAccelerometer(View view){
+        requestAccelerometer();
     }
 
     public void authButtonClick(View view){
@@ -585,11 +556,9 @@ public class MainActivity extends AppCompatActivity {
             final int x = data[3+i*6] < 0 ? (data[2+i*6] & 0xff) - 256 - (~data[3+i*6] << 8) : (data[2+i*6] & 0xFF) + (data[3+i*6] << 8);
             final int y = data[5+i*6] < 0 ? (data[4+i*6] & 0xff) - 256 - (~data[5+i*6] << 8) : (data[4+i*6] & 0xFF) + (data[5+i*6] << 8);
             final int z = data[7+i*6] < 0 ? (data[6+i*6] & 0xff) - 256 - (~data[7+i*6] << 8) : (data[6+i*6] & 0xFF) + (data[7+i*6] << 8);
-            queueX[queueCounter] = x;
-            queueY[queueCounter] = y;
-            queueZ[queueCounter] = z;
             System.out.println("[" + x + ", " + data[3+i*6] + ", " + y + ", " + data[5+i*6] + ", " + z + ", " + data[7+i*6] + "]");
-            queueCounter = (queueCounter + 1) % queueCapacity;
+
+            qualifier.qualifyWearableSensor(new Integer[]{x, y, z});
 
             //draw mi band chart
             runOnUiThread(new Runnable() {
@@ -605,10 +574,66 @@ public class MainActivity extends AppCompatActivity {
 
     public void startSensor(View view){
         if (miband != null){
-            gattDescriptorSensorMeasure.setValue(new byte[]{0x01, 0x00});
-            if (bluetoothGatt.writeDescriptor(gattDescriptorSensorMeasure))
-                connectionState = SENSOR_DATA_REQUESTED;
+            // request wearable's sensor
+            requestSensor();
+            // request phone's accelerometer
+            requestAccelerometer();
+            sensorsOn = true;
+            final Handler h = new Handler();
+            h.postDelayed(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    System.out.println("X");
+                    // 3 seconds later, put 2 workers
+                    h.postDelayed(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            System.out.println("X1");
+                            qualifier.qualify();
+                            h.postDelayed(this, 6000); //6 seconds of data obtanining
+                        }
+                    }, 6000); //6 seconds later
+                    h.postDelayed(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            System.out.println("X2");
+                            qualifier.qualifyShade();
+                            h.postDelayed(this, 6000); //6 seconds of data obtanining
+                        }
+                    }, 9000); //9 seconds later, 6 + 3 seconds forward
+                    h.postDelayed(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            System.out.println("X3");
+                            requestSensor();
+                            h.postDelayed(this, 35000); //request sensor every 35 seconds
+                        }
+                    }, 35000);
+                }
+            }, 3000); //3 seconds later to obtain first data
         }
+    }
+
+    private void requestSensor(){
+        gattDescriptorSensorMeasure.setValue(new byte[]{0x01, 0x00});
+        if (bluetoothGatt.writeDescriptor(gattDescriptorSensorMeasure))
+            connectionState = SENSOR_DATA_REQUESTED;
+    }
+
+    private void requestAccelerometer(){
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); //Sensor.TYPE_GYROSCOPE
+
+        sensorManager.registerListener(gyroscopeSensorListener,
+                sensor, SensorManager.SENSOR_DELAY_UI);
     }
 
     @Override
