@@ -36,6 +36,8 @@ import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -98,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String NOTIFICATION_DESCRIPTOR_2902 = "00002902-0000-1000-8000-00805f9b34fb";
 
 
-    private static final int queueCapacity = 200; //over 6 seconds of mi band use
+    private static final int queueCapacity = 300; //over 6 seconds of mi band use
 
     public final static String ACTION_GATT_CONNECTED =
             "pl.polsl.aei.monitorupadkow.ACTION_GATT_CONNECTED";
@@ -116,9 +118,13 @@ public class MainActivity extends AppCompatActivity {
     String key = "Kj6dUM1y3kBAPBey"; //8VoK4rpNZjZ04oh4
 
     private LineChart chartView;
-    private Qualifier qualifier;
+    private Storage storage;
 
     private boolean sensorsOn = false;
+    private boolean experiment = false;     //if it is experiment getting data to teach neuron network
+
+    private TextInputEditText filenameTextInput;
+    private String filename;
 
     private SensorManager sensorManager;
     private Sensor sensor;
@@ -128,8 +134,8 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onSensorChanged(SensorEvent sensorEvent) {
             // More code goes here
-            qualifier.qualifyPhoneAccelerometer(new double[]{sensorEvent.values[0], sensorEvent.values[1], sensorEvent.values[2]});
-            System.out.println("x: " + sensorEvent.values[0] + ", y: " + sensorEvent.values[1] + ", z: " + sensorEvent.values[2]);
+            storage.writePhoneAccelerometer(new double[]{sensorEvent.values[0], sensorEvent.values[1], sensorEvent.values[2]});
+            //System.out.println("x: " + sensorEvent.values[0] + ", y: " + sensorEvent.values[1] + ", z: " + sensorEvent.values[2]);
         }
 
         @Override
@@ -293,7 +299,7 @@ public class MainActivity extends AppCompatActivity {
                         if (Arrays.equals(characteristic.getValue(), new byte[]{0x10, 0x03, 0x01}))
                             System.out.println("ZAUTORYZOWANO");
                     } else {
-                        if (characteristic.getValue()[0] == 1) {
+                        if (characteristic.getValue()[0] == 1 && sensorsOn) {
                             parseAccelerationData(characteristic.getValue());
                         }
                     }
@@ -336,13 +342,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        qualifier = new Qualifier(queueCapacity);
+        storage = new Storage(getBaseContext(), queueCapacity);
 
         setContentView(R.layout.activity_main);
 
         imageView = findViewById(R.id.btIcon);
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        filenameTextInput = findViewById(R.id.filenameEditText);
 
         if (btAdapter == null) {
             Toast.makeText(this, "NIE MA BLUETOOTH", Toast.LENGTH_SHORT).show();
@@ -556,9 +564,9 @@ public class MainActivity extends AppCompatActivity {
             final int x = data[3+i*6] < 0 ? (data[2+i*6] & 0xff) - 256 - (~data[3+i*6] << 8) : (data[2+i*6] & 0xFF) + (data[3+i*6] << 8);
             final int y = data[5+i*6] < 0 ? (data[4+i*6] & 0xff) - 256 - (~data[5+i*6] << 8) : (data[4+i*6] & 0xFF) + (data[5+i*6] << 8);
             final int z = data[7+i*6] < 0 ? (data[6+i*6] & 0xff) - 256 - (~data[7+i*6] << 8) : (data[6+i*6] & 0xFF) + (data[7+i*6] << 8);
-            System.out.println("[" + x + ", " + data[3+i*6] + ", " + y + ", " + data[5+i*6] + ", " + z + ", " + data[7+i*6] + "]");
+            //System.out.println("[" + x + ", " + data[3+i*6] + ", " + y + ", " + data[5+i*6] + ", " + z + ", " + data[7+i*6] + "]");
 
-            qualifier.qualifyWearableSensor(new Integer[]{x, y, z});
+            storage.writeWearableSensor(new Integer[]{x, y, z});
 
             //draw mi band chart
             runOnUiThread(new Runnable() {
@@ -579,12 +587,17 @@ public class MainActivity extends AppCompatActivity {
             // request phone's accelerometer
             requestAccelerometer();
             sensorsOn = true;
+            storage.clear();
             final Handler h = new Handler();
             h.postDelayed(new Runnable()
             {
                 @Override
                 public void run()
                 {
+                    //start only 3 seconds after button clicked
+                    storage.unblock(Storage.Type.PRIMARY);
+                    storage.unblock(Storage.Type.SHADE);
+
                     System.out.println("X");
                     // 3 seconds later, put 2 workers
                     h.postDelayed(new Runnable()
@@ -593,8 +606,14 @@ public class MainActivity extends AppCompatActivity {
                         public void run()
                         {
                             System.out.println("X1");
-                            qualifier.qualify();
-                            h.postDelayed(this, 6000); //6 seconds of data obtanining
+                            if (!experiment) {//if it is experiment, do it only once - dont put next job
+                                storage.sendToQualify();
+                                h.postDelayed(this, 6000); //6 seconds of data obtanining
+                            }
+                            else {
+                                storage.block(Storage.Type.PRIMARY);
+                                storage.writeToFile(getApplicationContext(), filename.toLowerCase(), Storage.Type.PRIMARY);
+                            }
                         }
                     }, 6000); //6 seconds later
                     h.postDelayed(new Runnable()
@@ -603,22 +622,44 @@ public class MainActivity extends AppCompatActivity {
                         public void run()
                         {
                             System.out.println("X2");
-                            qualifier.qualifyShade();
-                            h.postDelayed(this, 6000); //6 seconds of data obtanining
+                            if (!experiment) {//if it is experiment, do it only once - dont put next job
+                                storage.sendShadeToQualify();
+                                h.postDelayed(this, 6000); //6 seconds of data obtanining
+                            }
+                            else {
+                                storage.block(Storage.Type.SHADE);
+                                storage.writeToFile(getApplicationContext(), filename.toUpperCase().replace(".JSON", "2.JSON"), Storage.Type.SHADE);
+                                //after experiment change flag and stop drawing chart
+                                experiment = false;
+                                sensorsOn = false;
+                            }
                         }
                     }, 9000); //9 seconds later, 6 + 3 seconds forward
-                    h.postDelayed(new Runnable()
-                    {
-                        @Override
-                        public void run()
+                    if (!experiment)
+                        h.postDelayed(new Runnable()
                         {
-                            System.out.println("X3");
-                            requestSensor();
-                            h.postDelayed(this, 35000); //request sensor every 35 seconds
-                        }
-                    }, 35000);
+                            @Override
+                            public void run()
+                            {
+                                System.out.println("X3");
+                                requestSensor();
+                                h.postDelayed(this, 35000); //request sensor every 35 seconds
+                            }
+                        }, 35000);
                 }
             }, 3000); //3 seconds later to obtain first data
+        }
+    }
+
+    public void startExperiment(View view){
+        try {
+            filename = filenameTextInput.getText().toString().trim();
+            if (!filename.toUpperCase().endsWith(".JSON"))
+                filename = filename.concat(".json");
+            experiment = true;
+            startSensor(view);
+        } catch(NullPointerException e){
+            System.out.println(e.toString());
         }
     }
 
@@ -630,7 +671,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestAccelerometer(){
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER); //Sensor.TYPE_GYROSCOPE
+        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED); //Sensor.TYPE_GYROSCOPE
 
         sensorManager.registerListener(gyroscopeSensorListener,
                 sensor, SensorManager.SENSOR_DELAY_UI);

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?><!DOCTYPE android.support.constraint.ConstraintLayout >
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -11,14 +11,13 @@ xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
-        android:onClick="startSensor"
-        android:text="sensor"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:onClick="startExperiment"
+        android:text="EKSPERYMENT"
+        app:layout_constraintBottom_toTopOf="@+id/filenameEditText"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toEndOf="@+id/connectButton"
-        app:layout_constraintTop_toBottomOf="@+id/scan_button"
-        app:layout_constraintVertical_bias="0.506" />
+        app:layout_constraintTop_toBottomOf="@+id/chartView" />
 
     <Button
         android:id="@+id/scan_button"
@@ -29,7 +28,7 @@ xmlns:app="http://schemas.android.com/apk/res-auto"
         android:visibility="visible"
         app:layout_constraintBottom_toTopOf="@+id/connectButton"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintHorizontal_bias="0.495"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/chartView" />
 
@@ -76,10 +75,10 @@ xmlns:app="http://schemas.android.com/apk/res-auto"
         android:id="@+id/connectButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="startAccelerometer"
-        android:text="AKCELEROMETR"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"
+        android:onClick="startSensor"
+        android:text="START"
+        app:layout_constraintBottom_toTopOf="@+id/filenameEditText"
         app:layout_constraintEnd_toStartOf="@+id/authButton2"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toEndOf="@+id/authButton"
@@ -91,10 +90,30 @@ xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_height="wrap_content"
         android:onClick="authButtonClick"
         android:text="POWIADOMIENIE"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/filenameEditText"
         app:layout_constraintEnd_toStartOf="@+id/connectButton"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/scan_button" />
+        app:layout_constraintTop_toBottomOf="@+id/chartView" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="409dp"
+        android:layout_height="wrap_content"
+        tools:layout_editor_absoluteX="1dp"
+        tools:layout_editor_absoluteY="588dp">
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/filenameEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="nazwaEksperymentu.csv"
+        android:singleLine="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/connectButton" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
