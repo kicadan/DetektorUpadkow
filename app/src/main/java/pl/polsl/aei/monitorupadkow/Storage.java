@@ -1,18 +1,10 @@
 package pl.polsl.aei.monitorupadkow;
 
 import android.content.Context;
-import android.os.Environment;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.stream.DoubleStream;
-import java.util.stream.Stream;
-
 
 
 public class Storage {
@@ -22,7 +14,6 @@ public class Storage {
         SHADE
     };
 
-    Context context;
     int wearNumber = 0;
     int phoneNumber = 0;
     private Integer[] queueX;
@@ -55,9 +46,7 @@ public class Storage {
     private boolean primaryQueueAccesible = true;
     private boolean shadeQueueAccesible = true;
 
-    public Storage(Context context){
-        this.context = context;
-
+    public Storage(){
         //default values of queue's capacity
         //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
         // ans: ca. 25 per second
@@ -80,11 +69,8 @@ public class Storage {
         queueShadeAccZ = new double[queueCapacity];
     }
 
-    public Storage(Context context, int queueCapacity){
+    public Storage(int queueCapacity){
         this.queueCapacity = queueCapacity;
-        this.queueShadeCounter = queueCapacity/2;
-        this.queueShadeAccCounter = queueCapacity/2;
-        this.context = context;
 
         //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
         // ans: ca. 25 per second
@@ -109,47 +95,35 @@ public class Storage {
 
     public void writePhoneAccelerometer(double[] data){
         //if not accesible, can't write
-        if (!primaryQueueAccesible)
-            return;
-
-        queueAccX[queueAccCounter] = data[0];
-        queueAccY[queueAccCounter] = data[1];
-        queueAccZ[queueAccCounter] = data[2];
-
-        queueShadeAccX[queueShadeAccCounter] = data[0];
-        queueShadeAccY[queueShadeAccCounter] = data[1];
-        queueShadeAccZ[queueShadeAccCounter] = data[2];
-        // moment kiedy ma nastąpić kwalifikacja (ustalany czasowo czy liczbą pomiarów)
-        if(queueAccCounter == queueCapacity){
-            queueAccCounter = 0;
-            System.out.println("PHONE!!!");
-            // weka and aws qualification
+        if (primaryQueueAccesible) {
+            queueAccX[queueAccCounter] = data[0];
+            queueAccY[queueAccCounter] = data[1];
+            queueAccZ[queueAccCounter] = data[2];
+            queueAccCounter = (queueAccCounter + 1) % queueCapacity;
         }
-        queueAccCounter = (queueAccCounter + 1) % queueCapacity;
-        queueShadeAccCounter = (queueShadeAccCounter + 1) % queueCapacity;
+        if (shadeQueueAccesible) {
+            queueShadeAccX[queueShadeAccCounter] = data[0];
+            queueShadeAccY[queueShadeAccCounter] = data[1];
+            queueShadeAccZ[queueShadeAccCounter] = data[2];
+            queueShadeAccCounter = (queueShadeAccCounter + 1) % queueCapacity;
+        }
         phoneNumber++;
     }
 
     public void writeWearableSensor(Integer[] data){
         //if not accesible, can't write
-        if (!shadeQueueAccesible)
-            return;
-
-        queueX[queueCounter] = data[0];
-        queueY[queueCounter] = data[1];
-        queueZ[queueCounter] = data[2];
-
-        queueShadeX[queueShadeCounter] = data[0];
-        queueShadeY[queueShadeCounter] = data[1];
-        queueShadeZ[queueShadeCounter] = data[2];
-        // moment kiedy ma nastąpić kwalifikacja (ustalany czasowo czy liczbą pomiarów)
-        if (queueCounter == queueCapacity) {
-            queueCounter = 0;
-            System.out.println("MI BAND!!!");
-            // weka and aws qualification
+        if (primaryQueueAccesible) {
+            queueX[queueCounter] = data[0];
+            queueY[queueCounter] = data[1];
+            queueZ[queueCounter] = data[2];
+            queueCounter = (queueCounter + 1) % queueCapacity;
         }
-        queueCounter = (queueCounter + 1) % queueCapacity;
-        queueShadeCounter = (queueShadeCounter + 1) % queueCapacity;
+        if (shadeQueueAccesible) {
+            queueShadeX[queueShadeCounter] = data[0];
+            queueShadeY[queueShadeCounter] = data[1];
+            queueShadeZ[queueShadeCounter] = data[2];
+            queueShadeCounter = (queueShadeCounter + 1) % queueCapacity;
+        }
         wearNumber++;
     }
 
@@ -192,7 +166,7 @@ public class Storage {
         //parseToJson(x, y, z, xp, yp, zp);
         /*parseToJson(Arrays.copyOfRange(queueX, 0, queueCounter), Arrays.copyOfRange(queueY, 0, queueCounter), Arrays.copyOfRange(queueZ, 0, queueCounter)
                 , Arrays.copyOfRange(queueAccX, 0, queueAccCounter), Arrays.copyOfRange(queueAccY, 0, queueAccCounter), Arrays.copyOfRange(queueAccZ, 0, queueAccCounter));*/
-        parseToJson(Type.PRIMARY);
+        generateJson(Type.PRIMARY);
         queueCounter = 0;
         queueAccCounter = 0;
     }
@@ -232,17 +206,31 @@ public class Storage {
         // send to the cloud
         /*parseToJson(Arrays.copyOfRange(queueShadeX, 0, queueShadeCounter), Arrays.copyOfRange(queueShadeY, 0, queueShadeCounter), Arrays.copyOfRange(queueShadeZ, 0, queueShadeCounter)
                 , Arrays.copyOfRange(queueShadeAccX, 0, queueShadeAccCounter), Arrays.copyOfRange(queueShadeAccY, 0, queueShadeAccCounter), Arrays.copyOfRange(queueShadeAccZ, 0, queueShadeAccCounter));*/
-        parseToJson(Type.SHADE);
+        generateJson(Type.SHADE);
         queueShadeCounter = 0;
         queueShadeAccCounter = 0;
     }
 
-    public void clear(){
+    public void clear() {
         // set counter on 0 is sufficient
         this.queueCounter = 0;
-        this.queueShadeCounter = 0;
         this.queueAccCounter = 0;
+        this.queueShadeCounter = 0;
         this.queueShadeAccCounter = 0;
+    }
+
+    public void clear(Type type){
+        // set counter on 0 is sufficient
+        switch(type){
+            case PRIMARY :
+                this.queueCounter = 0;
+                this.queueAccCounter = 0;
+                break;
+            case SHADE :
+                this.queueShadeCounter = 0;
+                this.queueShadeAccCounter = 0;
+                break;
+        }
     }
 
     public void block(Type type){
@@ -268,13 +256,23 @@ public class Storage {
     }
 
     public void writeToFile(Context context, String filename, Type type) {
+        String jsonFilename = filename;
+        String csvFilename = filename;
+        if (!filename.toUpperCase().endsWith(".JSON"))
+            jsonFilename = filename.concat(".json").toUpperCase();
+        if (!filename.toUpperCase().endsWith(".CSV"))
+            csvFilename = filename.concat(".csv").toUpperCase();
         File path = context.getExternalFilesDir(null);
-        File file = new File(path, filename);
+        File jsonFile = new File(path, jsonFilename);
+        File csvFile = new File(path, csvFilename);
         try {
-            FileOutputStream stream = new FileOutputStream(file);
+            FileOutputStream stream = new FileOutputStream(jsonFile);
+            stream.write(generateJson(type).getBytes());
+            stream.flush();
+            stream.close();
 
-            stream.write(parseToJson(type).getBytes());
-
+            stream = new FileOutputStream(csvFile);
+            stream.write(generateCsv(type).getBytes());
             stream.flush();
             stream.close();
         } catch(IOException e){
@@ -282,8 +280,8 @@ public class Storage {
         }
     }
 
-    private String parseToJson(Type type){
-        String result = "{\n\t\"MEASUREMENTS\": {\n\t\t\"WEARABLE\": ["; System.out.println(queueCounter + " " + queueAccCounter);
+    private String generateJson(Type type){
+        String result = "{\n\t\"MEASUREMENTS\": {\n\t\t\"WEARABLE\": [";
         switch(type){
             case PRIMARY :
                 for(int i = 0; i < queueCounter; i++){
@@ -328,6 +326,28 @@ public class Storage {
                 result += "\n\t\t]"
                         + "\n\t}"
                         + "\n}";
+                break;
+        }
+        return result;
+    }
+
+    private String generateCsv(Type type){
+        String result = "Xw;Yw;Zw;Xp;Yp;Zp\n";
+        int counterBound;
+        switch(type){
+            case PRIMARY :
+                counterBound = Math.max(queueCounter, queueAccCounter);
+                for(int i = 0; i < counterBound; i++){
+                    result = result.concat( i < queueCounter ? queueX[i] + ";" + queueY[i] + ";" + queueZ[i] + ";" : ";;;" ); //check if there is any possible value for wearable sensor
+                    result = result.concat( i < queueAccCounter ? queueAccX[i] + ";" + queueAccY[i] + ";" + queueAccZ[i] + "\n" : ";;\n" ); //check if there is any possible value for phone sensor
+                }
+                break;
+            case SHADE :
+                counterBound = Math.max(queueShadeCounter, queueShadeAccCounter);
+                for(int i = 0; i < counterBound; i++){
+                    result = result.concat( i < queueShadeCounter ? queueShadeX[i] + ";" + queueShadeY[i] + ";" + queueShadeZ[i] + ";" : ";;;" ); //check if there is any possible value for wearable sensor
+                    result = result.concat( i < queueShadeAccCounter ? queueShadeAccX[i] + ";" + queueShadeAccY[i] + ";" + queueShadeAccZ[i] + "\n" : ";;\n" ); //check if there is any possible value for phone sensor
+                }
                 break;
         }
         return result;

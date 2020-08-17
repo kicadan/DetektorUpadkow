@@ -101,6 +101,10 @@ public class MainActivity extends AppCompatActivity {
 
 
     private static final int queueCapacity = 300; //over 6 seconds of mi band use
+    // all times are in miliseconds
+    private static final int frameWidth = 6000;
+    private static final int shadeLatency = frameWidth/2;
+    private static final int sensorRefreshTime = 35000;
 
     public final static String ACTION_GATT_CONNECTED =
             "pl.polsl.aei.monitorupadkow.ACTION_GATT_CONNECTED";
@@ -342,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        storage = new Storage(getBaseContext(), queueCapacity);
+        storage = new Storage(queueCapacity);
 
         setContentView(R.layout.activity_main);
 
@@ -586,7 +590,6 @@ public class MainActivity extends AppCompatActivity {
             requestSensor();
             // request phone's accelerometer
             requestAccelerometer();
-            sensorsOn = true;
             storage.clear();
             final Handler h = new Handler();
             h.postDelayed(new Runnable()
@@ -594,12 +597,21 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run()
                 {
-                    //start only 3 seconds after button clicked
+                    //start only a few seconds after button clicked
                     storage.unblock(Storage.Type.PRIMARY);
-                    storage.unblock(Storage.Type.SHADE);
+                    sensorsOn = true;
 
+                    h.postDelayed(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            //shade starts a few seconds later; frameWidth / 2
+                            storage.unblock(Storage.Type.SHADE);
+                        }
+                    }, shadeLatency);
                     System.out.println("X");
-                    // 3 seconds later, put 2 workers
+                    //put 2 workers to obtain and send data and refresh connection
                     h.postDelayed(new Runnable()
                     {
                         @Override
@@ -608,33 +620,33 @@ public class MainActivity extends AppCompatActivity {
                             System.out.println("X1");
                             if (!experiment) {//if it is experiment, do it only once - dont put next job
                                 storage.sendToQualify();
-                                h.postDelayed(this, 6000); //6 seconds of data obtanining
+                                h.postDelayed(this, frameWidth); //6 seconds of data obtanining
                             }
                             else {
                                 storage.block(Storage.Type.PRIMARY);
                                 storage.writeToFile(getApplicationContext(), filename.toLowerCase(), Storage.Type.PRIMARY);
                             }
                         }
-                    }, 6000); //6 seconds later
+                    }, frameWidth); //a few seconds later
                     h.postDelayed(new Runnable()
                     {
                         @Override
                         public void run()
                         {
                             System.out.println("X2");
-                            if (!experiment) {//if it is experiment, do it only once - dont put next job
+                            if (!experiment) {
                                 storage.sendShadeToQualify();
-                                h.postDelayed(this, 6000); //6 seconds of data obtanining
+                                h.postDelayed(this, frameWidth); //6 seconds of data obtanining
                             }
-                            else {
+                            else { //if it is experiment, do it only once - dont put next job
                                 storage.block(Storage.Type.SHADE);
-                                storage.writeToFile(getApplicationContext(), filename.toUpperCase().replace(".JSON", "2.JSON"), Storage.Type.SHADE);
+                                storage.writeToFile(getApplicationContext(), filename.concat("2"), Storage.Type.SHADE);
                                 //after experiment change flag and stop drawing chart
                                 experiment = false;
                                 sensorsOn = false;
                             }
                         }
-                    }, 9000); //9 seconds later, 6 + 3 seconds forward
+                    }, frameWidth + shadeLatency); //a few seconds later, frame + latency seconds
                     if (!experiment)
                         h.postDelayed(new Runnable()
                         {
@@ -643,9 +655,9 @@ public class MainActivity extends AppCompatActivity {
                             {
                                 System.out.println("X3");
                                 requestSensor();
-                                h.postDelayed(this, 35000); //request sensor every 35 seconds
+                                h.postDelayed(this, sensorRefreshTime); //request sensor every 35 seconds
                             }
-                        }, 35000);
+                        }, sensorRefreshTime);
                 }
             }, 3000); //3 seconds later to obtain first data
         }
@@ -654,8 +666,10 @@ public class MainActivity extends AppCompatActivity {
     public void startExperiment(View view){
         try {
             filename = filenameTextInput.getText().toString().trim();
-            if (!filename.toUpperCase().endsWith(".JSON"))
-                filename = filename.concat(".json");
+            if (filename.length() == 0) {
+                Toast.makeText(this, "NALEŻY PODAĆ NAZWĘ PLIKU", Toast.LENGTH_SHORT).show();
+                return;
+            }
             experiment = true;
             startSensor(view);
         } catch(NullPointerException e){
