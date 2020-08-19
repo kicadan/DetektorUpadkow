@@ -1,18 +1,15 @@
 package pl.polsl.aei.monitorupadkow;
 
 public class Response {
-    String greetings;
 
-    public String getGreetings() {
-        return greetings;
+    Body body;
+
+    public Body getBody() {
+        return body;
     }
 
-    public void setGreetings(String greetings) {
-        this.greetings = greetings;
-    }
-
-    public Response(String greetings) {
-        this.greetings = greetings;
+    public void setBody(Body body) {
+        this.body = body;
     }
 
     public Response() {

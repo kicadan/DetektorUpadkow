@@ -7,6 +7,7 @@ import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.mobileconnectors.lambdainvoker.LambdaFunctionException;
 import com.amazonaws.mobileconnectors.lambdainvoker.LambdaInvokerFactory;
 import com.amazonaws.regions.Regions;
+import com.google.gson.Gson;
 
 public class AWSService {
 
@@ -36,7 +37,7 @@ public class AWSService {
         lambdaInterface = factory.build(LambdaInterface.class);
     }
 
-    public void test(){
+    /*public void test(){
         Request request = new Request("John", "Doe");
         // The Lambda function invocation results in a network call.
         // Make sure it is not called from the main thread.
@@ -60,6 +61,34 @@ public class AWSService {
 
                 // Do a toast
                 System.out.println(result.getGreetings());
+            }
+        }.execute(request);
+    }*/
+
+    public void qualifyData(String JSON){
+        Request request = new Request(new Gson().fromJson(JSON, Body.class));
+        // The Lambda function invocation results in a network call.
+        // Make sure it is not called from the main thread.
+        new AsyncTask<Request, Void, Response>() {
+            @Override
+            protected Response doInBackground(Request... params) {
+                // invoke "echo" method. In case it fails, it will throw a
+                // LambdaFunctionException.
+                try {
+                    return lambdaInterface.transformAppData(params[0]);
+                } catch (LambdaFunctionException lfe) {
+                    return null;
+                }
+            }
+
+            @Override
+            protected void onPostExecute(Response result) {
+                if (result == null) {
+                    return;
+                }
+
+                // Do a toast
+                System.out.println(result.getBody().getMeasurements().getWearable()[0].getZ());
             }
         }.execute(request);
     }

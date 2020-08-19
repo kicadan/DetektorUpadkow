@@ -12,4 +12,7 @@ public interface LambdaInterface {
 
     @LambdaFunction
     Response testFunction(Request request);
+
+    @LambdaFunction
+    Response transformAppData(Request request);
 }

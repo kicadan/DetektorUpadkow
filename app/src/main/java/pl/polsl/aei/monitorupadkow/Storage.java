@@ -280,8 +280,8 @@ public class Storage {
         }
     }
 
-    private String generateJson(Type type){
-        String result = "{\n\t\"MEASUREMENTS\": {\n\t\t\"WEARABLE\": [";
+    public String generateJson(Type type){
+        String result = "{\n\t\"measurements\": {\n\t\t\"wearable\": [";
         switch(type){
             case PRIMARY :
                 for(int i = 0; i < queueCounter; i++){
@@ -292,7 +292,7 @@ public class Storage {
                 }
                 if (result.endsWith(","))
                     result = result.substring(0, result.lastIndexOf(","));
-                result += "\n\t\t],\n\t\t\"PHONE\": [";
+                result += "\n\t\t],\n\t\t\"phone\": [";
                 for(int i = 0; i < queueAccCounter; i++){
                     result += "\n\t\t\t{"
                             + "\n\t\t\t\t\"X\" : " + queueAccX[i]+ ","
@@ -314,7 +314,7 @@ public class Storage {
                 }
                 if (result.endsWith(","))
                     result = result.substring(0, result.lastIndexOf(","));
-                result += "\n\t\t],\n\t\t\"PHONE\": [";
+                result += "\n\t\t],\n\t\t\"phone\": [";
                 for(int i = 0; i < queueShadeAccCounter; i++){
                     result += "\n\t\t\t{"
                             + "\n\t\t\t\t\"X\" : " + queueShadeAccX[i]+ ","

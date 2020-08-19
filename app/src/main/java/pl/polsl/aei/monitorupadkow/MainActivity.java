@@ -535,12 +535,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void authButtonClick(View view){
-        /*if (miband != null){
+        if (miband != null){
             //pisanie notyfikacji characteristic
             gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x50, 0x4f, 0x4c, 0x53, 0x4c, 0x2d, 0x32, 0x30, 0x32, 0x30});
             bluetoothGatt.writeCharacteristic(gattCharacteristicNotifications);
-        }*/
-        awsService.test();
+        }
+        //awsService.test2(storage.generateJson(Storage.Type.PRIMARY));
+        //awsService.test2("{\"measurements\": {\"wearable\":[ {\"X\": 0, \"Y\": 2, \"Z\": 3}, {\"X\": 0, \"Y\": 2, \"Z\": 3} ], \"phone\":[ {\"X\": 0.123, \"Y\": 1.23, \"Z\": 3}, {\"X\": 1.234, \"Y\": 23.45, \"Z\": 3} ]} }");
     }
 
     private byte[] encrypt(byte[] data){

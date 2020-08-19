@@ -1,7 +1,7 @@
 package pl.polsl.aei.monitorupadkow;
 
 public class Request {
-    String firstName;
+    /*String firstName;
     String lastName;
 
     public String getFirstName() {
@@ -23,8 +23,23 @@ public class Request {
     public Request(String firstName, String lastName) {
         this.firstName = firstName;
         this.lastName = lastName;
+    }*/
+
+    Body body;
+
+    public Body getBody() {
+        return body;
     }
 
-    public Request() {
+    public void setBody(Body body) {
+        this.body = body;
+    }
+
+    public Request(Body body) {
+        this.body = body;
+    }
+
+    public Request(){
+
     }
 }
