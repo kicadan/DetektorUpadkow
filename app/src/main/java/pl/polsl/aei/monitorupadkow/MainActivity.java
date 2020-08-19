@@ -50,6 +50,10 @@ import java.util.UUID;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.amazonaws.mobileconnectors.lambdainvoker.*;
+import com.amazonaws.auth.CognitoCachingCredentialsProvider;
+import com.amazonaws.regions.Regions;
+
 public class MainActivity extends AppCompatActivity {
 
     ImageView imageView;
@@ -132,6 +136,8 @@ public class MainActivity extends AppCompatActivity {
 
     private SensorManager sensorManager;
     private Sensor sensor;
+
+    private AWSService awsService;
 
 
     SensorEventListener gyroscopeSensorListener = new SensorEventListener() {
@@ -356,6 +362,8 @@ public class MainActivity extends AppCompatActivity {
 
         filenameTextInput = findViewById(R.id.filenameEditText);
 
+        awsService = new AWSService(getBaseContext());
+
         if (btAdapter == null) {
             Toast.makeText(this, "NIE MA BLUETOOTH", Toast.LENGTH_SHORT).show();
         } else if (btAdapter.isEnabled()){
@@ -527,11 +535,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void authButtonClick(View view){
-        if (miband != null){
+        /*if (miband != null){
             //pisanie notyfikacji characteristic
             gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x50, 0x4f, 0x4c, 0x53, 0x4c, 0x2d, 0x32, 0x30, 0x32, 0x30});
             bluetoothGatt.writeCharacteristic(gattCharacteristicNotifications);
-        }
+        }*/
+        awsService.test();
     }
 
     private byte[] encrypt(byte[] data){
