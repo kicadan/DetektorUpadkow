@@ -52,8 +52,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class StartActivity extends AppCompatActivity {
 
-    ImageView imageView;
-
     private BluetoothAdapter btAdapter;
     private Set<BluetoothDevice> bluetoothDevices;
     private BluetoothDevice miband;
@@ -123,6 +121,7 @@ public class StartActivity extends AppCompatActivity {
 
     private LineChart chartView;
     private Storage storage;
+    private ChooseActivity.MeasurementMode measurementMode;
 
     private boolean sensorsOn = false;
     private boolean experiment = false;     //if it is experiment getting data to teach neuron network
@@ -136,11 +135,22 @@ public class StartActivity extends AppCompatActivity {
     private AWSService awsService;
 
 
-    SensorEventListener gyroscopeSensorListener = new SensorEventListener() {
+    SensorEventListener accelerometerSensorListener = new SensorEventListener() {
         @Override
         public void onSensorChanged(SensorEvent sensorEvent) {
             // More code goes here
             storage.writePhoneAccelerometer(new double[]{sensorEvent.values[0], sensorEvent.values[1], sensorEvent.values[2]});
+            if (measurementMode == ChooseActivity.MeasurementMode.PHONE && sensorsOn){
+                //draw mi band chart
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        addEntry(sensorEvent.values[0], 1);
+                        addEntry(sensorEvent.values[1], 2);
+                        addEntry(sensorEvent.values[2], 3);
+                    }
+                });
+            }
             //System.out.println("x: " + sensorEvent.values[0] + ", y: " + sensorEvent.values[1] + ", z: " + sensorEvent.values[2]);
         }
 
@@ -305,7 +315,7 @@ public class StartActivity extends AppCompatActivity {
                         if (Arrays.equals(characteristic.getValue(), new byte[]{0x10, 0x03, 0x01}))
                             System.out.println("ZAUTORYZOWANO");
                     } else {
-                        if (characteristic.getValue()[0] == 1 && sensorsOn) {
+                        if (characteristic.getValue()[0] == 1 && sensorsOn && measurementMode != ChooseActivity.MeasurementMode.PHONE) {
                             parseAccelerationData(characteristic.getValue());
                         }
                     }
@@ -348,15 +358,14 @@ public class StartActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        Intent intent = getIntent();
+        measurementMode = ChooseActivity.MeasurementMode.values()[intent.getIntExtra("MeasurementMode", 0)];
+
         storage = new Storage(queueCapacity);
 
-        setContentView(R.layout.activity_launch);
-
-        imageView = findViewById(R.id.btIcon);
+        setContentView(R.layout.activity_start);
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        filenameTextInput = findViewById(R.id.filenameEditText);
 
         awsService = new AWSService(getBaseContext());
 
@@ -411,15 +420,20 @@ public class StartActivity extends AppCompatActivity {
 
     private void setupAxes() {
         XAxis xl = chartView.getXAxis();
-        xl.setTextColor(Color.GREEN);
+        xl.setTextColor(Color.BLACK);
         xl.setDrawGridLines(false);
         xl.setAvoidFirstLastClipping(true);
         xl.setEnabled(true);
 
         YAxis leftAxis = chartView.getAxisLeft();
         leftAxis.setTextColor(Color.BLUE);
-        leftAxis.setAxisMaximum(1100);
-        leftAxis.setAxisMinimum(-1100);
+        if (measurementMode != ChooseActivity.MeasurementMode.PHONE) {
+            leftAxis.setAxisMaximum(1100);
+            leftAxis.setAxisMinimum(-1100);
+        } else {
+            leftAxis.setAxisMaximum(50);
+            leftAxis.setAxisMinimum(-50);
+        }
         leftAxis.setDrawGridLines(true);
 
         YAxis rightAxis = chartView.getAxisRight();
@@ -467,7 +481,7 @@ public class StartActivity extends AppCompatActivity {
         return set;
     }
 
-    private void addEntry(int value, int axis) {
+    private void addEntry(float value, int axis) {
         LineData data = chartView.getData();
 
         if (data != null) {
@@ -504,7 +518,7 @@ public class StartActivity extends AppCompatActivity {
         }
     }
 
-    public void mainButtonOnClick(View view) {
+    public void connect(View view) {
         if (bluetoothGatt == null) {
             if (btAdapter == null) {
                 Toast.makeText(this, "NIE MA BLUETOOTH", Toast.LENGTH_SHORT).show();
@@ -530,7 +544,7 @@ public class StartActivity extends AppCompatActivity {
         requestAccelerometer();
     }
 
-    public void authButtonClick(View view){
+    public void notify(View view){
         if (miband != null){
             //pisanie notyfikacji characteristic
             gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x50, 0x4f, 0x4c, 0x53, 0x4c, 0x2d, 0x32, 0x30, 0x32, 0x30});
@@ -591,96 +605,57 @@ public class StartActivity extends AppCompatActivity {
     }
 
     public void startSensor(View view){
-        if (miband != null){
+        if (measurementMode != ChooseActivity.MeasurementMode.PHONE && miband != null) {//only in this mode wearable sensor isn't requested
             // request wearable's sensor
             requestSensor();
-            // request phone's accelerometer
+        } else if (measurementMode != ChooseActivity.MeasurementMode.PHONE) {
+            Toast.makeText(this, "NAJPIERW POŁĄCZ SIĘ Z OPASKĄ", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // request phone's accelerometer
+        if (measurementMode != ChooseActivity.MeasurementMode.WEARABLE)
             requestAccelerometer();
-            storage.clear();
-            final Handler h = new Handler();
-            h.postDelayed(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    //start only a few seconds after button clicked
-                    storage.unblock(Storage.Type.PRIMARY);
-                    sensorsOn = true;
+        storage.clear();
+        final Handler h = new Handler();
+        h.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                //start only a few seconds after button clicked
+                storage.unblock(Storage.Type.PRIMARY);
+                sensorsOn = true;
 
-                    h.postDelayed(new Runnable()
-                    {
+                h.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        //shade starts a few seconds later; frameWidth / 2
+                        storage.unblock(Storage.Type.SHADE);
+                    }
+                }, shadeLatency);
+                //put 2 workers to obtain and send data and refresh connection
+                h.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        storage.sendToQualify();
+                        h.postDelayed(this, frameWidth); //6 seconds of data obtanining
+                    }
+                }, frameWidth); //a few seconds later
+                h.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        storage.sendShadeToQualify();
+                        h.postDelayed(this, frameWidth); //6 seconds of data obtanining
+                    }
+                }, frameWidth + shadeLatency); //a few seconds later, frame + latency seconds
+                if (measurementMode != ChooseActivity.MeasurementMode.PHONE && miband != null)
+                    h.postDelayed(new Runnable() {
                         @Override
-                        public void run()
-                        {
-                            //shade starts a few seconds later; frameWidth / 2
-                            storage.unblock(Storage.Type.SHADE);
+                        public void run() {
+                            requestSensor();
+                            h.postDelayed(this, sensorRefreshTime); //request sensor every 35 seconds
                         }
-                    }, shadeLatency);
-                    System.out.println("X");
-                    //put 2 workers to obtain and send data and refresh connection
-                    h.postDelayed(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            System.out.println("X1");
-                            if (!experiment) {//if it is experiment, do it only once - dont put next job
-                                storage.sendToQualify();
-                                h.postDelayed(this, frameWidth); //6 seconds of data obtanining
-                            }
-                            else {
-                                storage.block(Storage.Type.PRIMARY);
-                                storage.writeToFile(getApplicationContext(), filename.toLowerCase(), Storage.Type.PRIMARY);
-                            }
-                        }
-                    }, frameWidth); //a few seconds later
-                    h.postDelayed(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            System.out.println("X2");
-                            if (!experiment) {
-                                storage.sendShadeToQualify();
-                                h.postDelayed(this, frameWidth); //6 seconds of data obtanining
-                            }
-                            else { //if it is experiment, do it only once - dont put next job
-                                storage.block(Storage.Type.SHADE);
-                                storage.writeToFile(getApplicationContext(), filename.concat("2"), Storage.Type.SHADE);
-                                //after experiment change flag and stop drawing chart
-                                experiment = false;
-                                sensorsOn = false;
-                            }
-                        }
-                    }, frameWidth + shadeLatency); //a few seconds later, frame + latency seconds
-                    if (!experiment)
-                        h.postDelayed(new Runnable()
-                        {
-                            @Override
-                            public void run()
-                            {
-                                System.out.println("X3");
-                                requestSensor();
-                                h.postDelayed(this, sensorRefreshTime); //request sensor every 35 seconds
-                            }
-                        }, sensorRefreshTime);
-                }
-            }, 3000); //3 seconds later to obtain first data
-        }
-    }
-
-    public void startExperiment(View view){
-        try {
-            filename = filenameTextInput.getText().toString().trim();
-            if (filename.length() == 0) {
-                Toast.makeText(this, "NALEŻY PODAĆ NAZWĘ PLIKU", Toast.LENGTH_SHORT).show();
-                return;
+                    }, sensorRefreshTime);
             }
-            experiment = true;
-            startSensor(view);
-        } catch(NullPointerException e){
-            System.out.println(e.toString());
-        }
+        }, 3000); //3 seconds later to obtain first data
     }
 
     private void requestSensor(){
@@ -693,8 +668,14 @@ public class StartActivity extends AppCompatActivity {
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED); //Sensor.TYPE_GYROSCOPE
 
-        sensorManager.registerListener(gyroscopeSensorListener,
+        sensorManager.registerListener(accelerometerSensorListener,
                 sensor, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    public void back(View view){
+        Intent intent = new Intent(StartActivity.this, ChooseActivity.class);
+        // start the activity connect to the specified class
+        startActivity(intent);
     }
 
     @Override

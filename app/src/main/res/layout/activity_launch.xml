@@ -4,33 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@android:color/holo_orange_light"
     tools:context=".LaunchActivity">
-
-    <Button
-        android:id="@+id/authButton2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:onClick="startExperiment"
-        android:text="EKSPERYMENT"
-        app:layout_constraintBottom_toTopOf="@+id/filenameEditText"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/connectButton"
-        app:layout_constraintTop_toBottomOf="@+id/chartView" />
-
-    <Button
-        android:id="@+id/scan_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="mainButtonOnClick"
-        android:text="POŁĄCZ"
-        android:visibility="visible"
-        app:layout_constraintBottom_toTopOf="@+id/connectButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.495"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/chartView" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline"
@@ -40,80 +15,14 @@
         app:layout_constraintGuide_end="413dp" />
 
     <ImageView
-        android:id="@+id/btIcon"
-        android:layout_width="139dp"
-        android:layout_height="131dp"
-        android:backgroundTint="#FFADAD"
-        app:layout_constraintBottom_toTopOf="@+id/chartView"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_action_search" />
-
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/chartView"
-        android:layout_width="416dp"
-        android:layout_height="321dp"
-        app:layout_constraintBottom_toTopOf="@+id/scan_button"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btIcon" />
-
-    <TextView
-        android:id="@+id/peripheralTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Devices"
-        app:layout_constraintBottom_toTopOf="@+id/chartView"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btIcon" />
-
-    <Button
-        android:id="@+id/connectButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:onClick="startSensor"
-        android:text="START"
-        app:layout_constraintBottom_toTopOf="@+id/filenameEditText"
-        app:layout_constraintEnd_toStartOf="@+id/authButton2"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/authButton"
-        app:layout_constraintTop_toBottomOf="@+id/scan_button" />
-
-    <Button
-        android:id="@+id/authButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="authButtonClick"
-        android:text="POWIADOMIENIE"
-        app:layout_constraintBottom_toTopOf="@+id/filenameEditText"
-        app:layout_constraintEnd_toStartOf="@+id/connectButton"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/chartView" />
-
-    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/imageView"
         android:layout_width="409dp"
-        android:layout_height="wrap_content"
-        tools:layout_editor_absoluteX="1dp"
-        tools:layout_editor_absoluteY="588dp">
-
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <com.google.android.material.textfield.TextInputEditText
-        android:id="@+id/filenameEditText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="nazwaEksperymentu.csv"
-        android:singleLine="true"
+        android:layout_height="729dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/connectButton" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/ic_start_screen" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
