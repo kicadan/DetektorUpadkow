@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ChooseActivity">
+
+    <Button
+        android:id="@+id/complexButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PEŁNY"
+        app:layout_constraintBottom_toTopOf="@+id/wearableButton"
+        app:layout_constraintEnd_toStartOf="@+id/ecoButton"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/wearableButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OPASKA"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/phoneButton"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/complexButton" />
+
+    <Button
+        android:id="@+id/phoneButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="TELEFON"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/wearableButton"
+        app:layout_constraintTop_toBottomOf="@+id/ecoButton" />
+
+    <Button
+        android:id="@+id/ecoButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OSZCZĘDNY"
+        app:layout_constraintBottom_toTopOf="@+id/phoneButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/complexButton"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/settingsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="USTAWIENIA"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/wearableButton" />
+
+    <TextView
+        android:id="@+id/detectionModeView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="TRYB DETEKCJI"
+        app:layout_constraintBottom_toTopOf="@+id/complexButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -37,7 +37,6 @@ import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,11 +49,7 @@ import java.util.UUID;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
-import com.amazonaws.mobileconnectors.lambdainvoker.*;
-import com.amazonaws.auth.CognitoCachingCredentialsProvider;
-import com.amazonaws.regions.Regions;
-
-public class MainActivity extends AppCompatActivity {
+public class LaunchActivity extends AppCompatActivity {
 
     ImageView imageView;
 
@@ -354,7 +349,7 @@ public class MainActivity extends AppCompatActivity {
 
         storage = new Storage(queueCapacity);
 
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_launch);
 
         imageView = findViewById(R.id.btIcon);
 
