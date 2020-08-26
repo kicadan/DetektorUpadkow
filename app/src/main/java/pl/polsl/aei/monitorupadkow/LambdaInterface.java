@@ -8,11 +8,14 @@ public interface LambdaInterface {
      * The function name is the method name.
      */
     @LambdaFunction
-    Response QualifyData(Request request);
+    Response qualifyComplex(Request request);
 
     @LambdaFunction
-    Response testFunction(Request request);
+    Response qualifyWearable(Request request);
 
     @LambdaFunction
-    Response transformAppData(Request request);
+    Response qualifyPhone(Request request);
+
+    @LambdaFunction
+    Response qualifyEco(Request request);
 }

@@ -5,6 +5,7 @@ import android.content.Context;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 
 
 public class Storage {
@@ -46,7 +47,9 @@ public class Storage {
     private boolean primaryQueueAccesible = true;
     private boolean shadeQueueAccesible = true;
 
-    public Storage(){
+    AWSService awsService;
+
+    public Storage(Context context){
         //default values of queue's capacity
         //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
         // ans: ca. 25 per second
@@ -67,9 +70,11 @@ public class Storage {
         queueShadeAccX = new double[queueCapacity];
         queueShadeAccY = new double[queueCapacity];
         queueShadeAccZ = new double[queueCapacity];
+
+        awsService = new AWSService(context);
     }
 
-    public Storage(int queueCapacity){
+    public Storage(Context context, int queueCapacity){
         this.queueCapacity = queueCapacity;
 
         //trzeba sprawdzić częstotliwość próbkowania na sekundę i przeskalować
@@ -91,6 +96,8 @@ public class Storage {
         queueShadeAccX = new double[queueCapacity];
         queueShadeAccY = new double[queueCapacity];
         queueShadeAccZ = new double[queueCapacity];
+
+        awsService = new AWSService(context);
     }
 
     public void writePhoneAccelerometer(double[] data){
@@ -128,85 +135,44 @@ public class Storage {
     }
 
     //transfer data to the cloud
-    public void sendToQualify(){
-        Integer[] x;
-        Integer[] y;
-        Integer[] z;
-        double[] xp;
-        double[] yp;
-        double[] zp;
-        /*if (queueCounter != 0) {
-            //it's circle bufor so sort data chronologically
-            x = Stream.concat(Arrays.stream(Arrays.copyOfRange(queueX, queueCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueX, 0, queueCounter - 1)))
-                    .toArray(Integer[]::new);
-            y = Stream.concat(Arrays.stream(Arrays.copyOfRange(queueY, queueCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueY, 0, queueCounter - 1)))
-                    .toArray(Integer[]::new);
-            z = Stream.concat(Arrays.stream(Arrays.copyOfRange(queueZ, queueCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueZ, 0, queueCounter - 1)))
-                    .toArray(Integer[]::new);
-        } else {
-            x = queueX;
-            y = queueY;
-            z = queueZ;
+    public void sendToQualify(StartActivity delegate, ChooseActivity.MeasurementMode mode){
+        String request = new String();
+        switch(mode){
+            case COMPLEX :
+                request = generateJson(Type.PRIMARY);
+                break;
+            case WEARABLE :
+                request = generateJsonWearable(Type.PRIMARY);
+                break;
+            case PHONE :
+                request = generateJsonPhone(Type.PRIMARY);
+                break;
+            case ECO :
+                request = generateJsonEco(Type.PRIMARY);
+                break;
         }
-        if (queueAccCounter != 0) {
-            xp = DoubleStream.concat(Arrays.stream(Arrays.copyOfRange(queueAccX, queueAccCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueAccX, 0, queueAccCounter - 1)))
-                    .toArray();
-            yp = DoubleStream.concat(Arrays.stream(Arrays.copyOfRange(queueAccY, queueAccCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueAccY, 0, queueAccCounter - 1)))
-                    .toArray();
-            zp = DoubleStream.concat(Arrays.stream(Arrays.copyOfRange(queueAccZ, queueAccCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueAccZ, 0, queueAccCounter - 1)))
-                    .toArray();
-        } else {
-            xp = queueAccX;
-            yp = queueAccY;
-            zp = queueAccZ;
-        }*/
-        // qualify to do
-        // send to the cloud
-        System.out.println(queueCounter + " " + wearNumber + " " + queueAccCounter + " " + phoneNumber);
-        //parseToJson(x, y, z, xp, yp, zp);
-        /*parseToJson(Arrays.copyOfRange(queueX, 0, queueCounter), Arrays.copyOfRange(queueY, 0, queueCounter), Arrays.copyOfRange(queueZ, 0, queueCounter)
-                , Arrays.copyOfRange(queueAccX, 0, queueAccCounter), Arrays.copyOfRange(queueAccY, 0, queueAccCounter), Arrays.copyOfRange(queueAccZ, 0, queueAccCounter));*/
-        generateJson(Type.PRIMARY);
+        awsService.qualifyData(delegate, request, mode);
         queueCounter = 0;
         queueAccCounter = 0;
     }
 
-    public void sendShadeToQualify(){
-        /*Integer[] x;
-        Integer[] y;
-        Integer[] z;
-        double[] xp;
-        double[] yp;
-        double[] zp;
-        if (queueShadeCounter != 0) {
-            x = Stream.concat(Arrays.stream(Arrays.copyOfRange(queueShadeX, queueShadeCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueShadeX, 0, queueShadeCounter - 1)))
-                    .toArray(Integer[]::new);
-            y = Stream.concat(Arrays.stream(Arrays.copyOfRange(queueShadeY, queueShadeCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueShadeY, 0, queueShadeCounter - 1)))
-                    .toArray(Integer[]::new);
-            z = Stream.concat(Arrays.stream(Arrays.copyOfRange(queueShadeZ, queueShadeCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueShadeZ, 0, queueShadeCounter - 1)))
-                    .toArray(Integer[]::new);
-        } else {
-            x = queueShadeX;
-            y = queueShadeY;
-            z = queueShadeZ;
+    public void sendShadeToQualify(StartActivity delegate, ChooseActivity.MeasurementMode mode){
+        String request = new String();
+        switch(mode){
+            case COMPLEX :
+                request = generateJson(Type.SHADE);
+                break;
+            case WEARABLE :
+                request = generateJsonWearable(Type.SHADE);
+                break;
+            case PHONE :
+                request = generateJsonPhone(Type.SHADE);
+                break;
+            case ECO :
+                request = generateJsonEco(Type.SHADE);
+                break;
         }
-        if (queueShadeAccCounter != 0) {
-            xp = DoubleStream.concat(Arrays.stream(Arrays.copyOfRange(queueShadeAccX, queueShadeAccCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueShadeAccX, 0, queueShadeAccCounter - 1)))
-                    .toArray();
-            yp = DoubleStream.concat(Arrays.stream(Arrays.copyOfRange(queueShadeAccY, queueShadeAccCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueShadeAccY, 0, queueShadeAccCounter - 1)))
-                    .toArray();
-            zp = DoubleStream.concat(Arrays.stream(Arrays.copyOfRange(queueShadeAccZ, queueShadeAccCounter, queueCapacity - 1)), Arrays.stream(Arrays.copyOfRange(queueShadeAccZ, 0, queueShadeAccCounter - 1)))
-                    .toArray();
-        } else {
-            xp = queueShadeAccX;
-            yp = queueShadeAccY;
-            zp = queueShadeAccZ;
-        }*/
-        // qualify to do
-        // send to the cloud
-        /*parseToJson(Arrays.copyOfRange(queueShadeX, 0, queueShadeCounter), Arrays.copyOfRange(queueShadeY, 0, queueShadeCounter), Arrays.copyOfRange(queueShadeZ, 0, queueShadeCounter)
-                , Arrays.copyOfRange(queueShadeAccX, 0, queueShadeAccCounter), Arrays.copyOfRange(queueShadeAccY, 0, queueShadeAccCounter), Arrays.copyOfRange(queueShadeAccZ, 0, queueShadeAccCounter));*/
-        generateJson(Type.SHADE);
+        awsService.qualifyData(delegate, request, mode);
         queueShadeCounter = 0;
         queueShadeAccCounter = 0;
     }
@@ -325,6 +291,101 @@ public class Storage {
                     result = result.substring(0, result.lastIndexOf(","));
                 result += "\n\t\t]"
                         + "\n\t}"
+                        + "\n}";
+                break;
+        }
+        return result;
+    }
+
+    private String generateJsonWearable(Type type) {
+        String result = "{\n\t\"measurements\": {\n\t\t\"wearable\": [";
+        switch(type){
+            case PRIMARY :
+                for(int i = 0; i < queueCounter; i++){
+                    result += "\n\t\t\t{"
+                            + "\n\t\t\t\t\"X\" : " + queueX[i] + ","
+                            + "\n\t\t\t\t\"Y\" : " + queueY[i] + ","
+                            + "\n\t\t\t\t\"Z\" : " + queueZ[i] + "\n\t\t\t},";
+                }
+                if (result.endsWith(","))
+                    result = result.substring(0, result.lastIndexOf(","));
+                result += "\n\t\t]"
+                        + "\n\t}"
+                        + "\n}";
+                break;
+            case SHADE :
+                for(int i = 0; i < queueShadeCounter; i++){
+                    result += "\n\t\t\t{"
+                            + "\n\t\t\t\t\"X\" : " + queueShadeX[i] + ","
+                            + "\n\t\t\t\t\"Y\" : " + queueShadeY[i] + ","
+                            + "\n\t\t\t\t\"Z\" : " + queueShadeZ[i] + "\n\t\t\t},";
+                }
+                if (result.endsWith(","))
+                    result = result.substring(0, result.lastIndexOf(","));
+                result += "\n\t\t]"
+                        + "\n\t}"
+                        + "\n}";
+                break;
+        }
+        return result;
+    }
+
+    private String generateJsonPhone(Type type) {
+        String result = "{\n\t\"measurements\": {";
+        switch(type){
+            case PRIMARY :
+                result += "\n\t\t\"phone\": [";
+                for(int i = 0; i < queueAccCounter; i++){
+                    result += "\n\t\t\t{"
+                            + "\n\t\t\t\t\"X\" : " + queueAccX[i]+ ","
+                            + "\n\t\t\t\t\"Y\" : " + queueAccY[i] + ","
+                            + "\n\t\t\t\t\"Z\" : " + queueAccZ[i] + "\n\t\t\t},";
+                }
+                if (result.endsWith(","))
+                    result = result.substring(0, result.lastIndexOf(","));
+                result += "\n\t\t]"
+                        + "\n\t}"
+                        + "\n}";
+                break;
+            case SHADE :
+                result += "\n\t\t\"phone\": [";
+                for(int i = 0; i < queueShadeAccCounter; i++){
+                    result += "\n\t\t\t{"
+                            + "\n\t\t\t\t\"X\" : " + queueShadeAccX[i]+ ","
+                            + "\n\t\t\t\t\"Y\" : " + queueShadeAccY[i] + ","
+                            + "\n\t\t\t\t\"Z\" : " + queueShadeAccZ[i] + "\n\t\t\t},";
+                }
+                if (result.endsWith(","))
+                    result = result.substring(0, result.lastIndexOf(","));
+                result += "\n\t\t]"
+                        + "\n\t}"
+                        + "\n}";
+                break;
+        }
+        return result;
+    }
+
+    private String generateJsonEco(Type type) {
+        String result = "{\n\t\"features\": {";
+        switch(type){
+            case PRIMARY :
+                result += "\n\t\t\"wearableStdDevX\": " + Calculator.standardDeviation(queueX, queueCounter) + "," +
+                        "\n\t\t\"wearableStdDevY\": " + Calculator.standardDeviation(queueY, queueCounter) + "," +
+                        "\n\t\t\"wearableStdDevZ\": " + Calculator.standardDeviation(queueZ, queueCounter) + "," +
+                        "\n\t\t\"phoneStdDevX\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccX, queueAccCounter)) + "," +
+                        "\n\t\t\"phoneStdDevY\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccY, queueAccCounter)) + "," +
+                        "\n\t\t\"phoneStdDevZ\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccZ, queueAccCounter));
+                result += "\n\t}"
+                        + "\n}";
+                break;
+            case SHADE :
+                result += "\n\t\t\"wearableStdDevX\": " + Calculator.standardDeviation(queueShadeX, queueShadeCounter) + "," +
+                        "\n\t\t\"wearableStdDevY\": " + Calculator.standardDeviation(queueShadeY, queueShadeCounter) + "," +
+                        "\n\t\t\"wearableStdDevZ\": " + Calculator.standardDeviation(queueShadeZ, queueShadeCounter) + "," +
+                        "\n\t\t\"phoneStdDevX\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccX, queueShadeAccCounter)) + "," +
+                        "\n\t\t\"phoneStdDevY\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccY, queueShadeAccCounter)) + "," +
+                        "\n\t\t\"phoneStdDevZ\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccZ, queueShadeAccCounter));
+                result += "\n\t}"
                         + "\n}";
                 break;
         }

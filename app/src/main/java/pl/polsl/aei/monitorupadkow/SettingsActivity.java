@@ -2,19 +2,22 @@ package pl.polsl.aei.monitorupadkow;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 
 public class SettingsActivity extends AppCompatActivity {
 
-    String filename = "settings.txt";
-    String phoneNumber;
+    static String filename = "settings.txt";
     EditText phoneNumberEdit;
     //phoneNumberEdit
 
@@ -23,6 +26,7 @@ public class SettingsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
         phoneNumberEdit = (EditText)findViewById(R.id.phoneNumberEdit);
+        phoneNumberEdit.setText(getPhoneNumber(getApplicationContext()));
     }
 
     public void save(View view){
@@ -39,12 +43,29 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     public void back(View view){
-        Intent intent = new Intent(SettingsActivity.this, ChooseActivity.class);
-        // start the activity connect to the specified class
-        startActivity(intent);
+        finish();
     }
 
     public String generateSettingsFile(){
-        return "{\n\t\"PhoneNumber\" : \"" + phoneNumberEdit.getText().toString() + "\"\n}";
+        return phoneNumberEdit.getText().toString().trim();
+    }
+
+    public static String getPhoneNumber(Context context){
+        File path = context.getExternalFilesDir(null);
+        File settingsFile = new File(path, filename);
+        StringBuilder text = new StringBuilder();
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(settingsFile));
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                text.append(line);
+                text.append('\n');
+            }
+            br.close();
+        } catch(IOException e){
+            System.out.println(e.toString());
+        }
+        return text.toString();
     }
 }

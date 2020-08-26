@@ -2,16 +2,20 @@ package pl.polsl.aei.monitorupadkow;
 
 public class Response {
 
-    Body body;
+    String result;
 
-    public Body getBody() {
-        return body;
+    public String getResult() {
+        return result;
     }
 
-    public void setBody(Body body) {
-        this.body = body;
+    public void setResult(String result) {
+        this.result = result;
     }
 
     public Response() {
+    }
+
+    public Response(String result) {
+        this.result = result;
     }
 }

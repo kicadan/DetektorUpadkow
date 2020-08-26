@@ -2,8 +2,13 @@ package pl.polsl.aei.monitorupadkow;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationCompat;
 
 import android.Manifest;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -23,10 +28,17 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.media.RingtoneManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
+import android.os.Vibrator;
+import android.telephony.SmsManager;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.github.mikephil.charting.charts.LineChart;
@@ -37,6 +49,11 @@ import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.io.ByteArrayOutputStream;
@@ -132,8 +149,14 @@ public class StartActivity extends AppCompatActivity {
     private SensorManager sensorManager;
     private Sensor sensor;
 
-    private AWSService awsService;
+    private static NotificationManager notificationManager;
+    private static boolean fallDetected = false;
+    private int fallNumber = 0;
 
+    final Handler h = new Handler();
+    SmsManager smsmanager;
+    LocationManager locationManager;
+    private FusedLocationProviderClient fusedLocationClient;
 
     SensorEventListener accelerometerSensorListener = new SensorEventListener() {
         @Override
@@ -151,7 +174,6 @@ public class StartActivity extends AppCompatActivity {
                     }
                 });
             }
-            //System.out.println("x: " + sensorEvent.values[0] + ", y: " + sensorEvent.values[1] + ", z: " + sensorEvent.values[2]);
         }
 
         @Override
@@ -159,6 +181,8 @@ public class StartActivity extends AppCompatActivity {
             System.out.println("onAccChanged: " + sensor.getName() + ", i: " + i);
         }
     };
+
+
 
     private final BluetoothGattCallback gattCallback =
             new BluetoothGattCallback() {
@@ -189,7 +213,7 @@ public class StartActivity extends AppCompatActivity {
                                 characteristicAuthorization = characteristic;
                                 bluetoothGatt.setCharacteristicNotification(characteristicAuthorization, true);
                                 gattDescriptor0051 = characteristic.getDescriptor(UUID.fromString(NOTIFICATION_DESCRIPTOR_2902)); //0x2902
-                                bluetoothGatt.readCharacteristic(characteristicAuthorization); System.out.println("success");
+                                bluetoothGatt.readCharacteristic(characteristicAuthorization);
                                 connectionState = CHARACTERISTIC_READ;
                             }
                             if (characteristic.getUuid().toString().equals(CHARACTERISTIC_AUTHORIZATION_B)){ //authorization
@@ -358,16 +382,17 @@ public class StartActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        createNotificationChannel();
+        smsmanager = SmsManager.getDefault();
+
         Intent intent = getIntent();
         measurementMode = ChooseActivity.MeasurementMode.values()[intent.getIntExtra("MeasurementMode", 0)];
 
-        storage = new Storage(queueCapacity);
+        storage = new Storage(getApplicationContext(), queueCapacity);
 
         setContentView(R.layout.activity_start);
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        awsService = new AWSService(getBaseContext());
 
         if (btAdapter == null) {
             Toast.makeText(this, "NIE MA BLUETOOTH", Toast.LENGTH_SHORT).show();
@@ -404,6 +429,24 @@ public class StartActivity extends AppCompatActivity {
             builder.show();
         }
 
+    }
+
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "FALL_CHANNEL";
+            String description = "CANAL_USED_AFTER_FALL";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel("FALL_CHANNEL_ID", name, importance);
+            channel.setDescription(description);
+            channel.enableVibration(true);
+            channel.enableLights(true);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
     }
 
     private void setupChart() {
@@ -544,14 +587,67 @@ public class StartActivity extends AppCompatActivity {
         requestAccelerometer();
     }
 
-    public void notify(View view){
-        if (miband != null){
-            //pisanie notyfikacji characteristic
-            gattCharacteristicNotifications.setValue(new byte[] {0x03, 0x01, 0x50, 0x4f, 0x4c, 0x53, 0x4c, 0x2d, 0x32, 0x30, 0x32, 0x30});
-            bluetoothGatt.writeCharacteristic(gattCharacteristicNotifications);
+    public void notify(String x){
+        if (!fallDetected) {
+            fallDetected = true;
+            Intent notificationIntent = new Intent(this, AlarmRejected.class);
+            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            notificationIntent.putExtra("REJECT_ALARM", 1);
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "FALL_CHANNEL_ID");
+            builder.setSmallIcon(R.drawable.ic_launcher_background)
+                    .setContentTitle("WYKRYTO UPADEK")
+                    .setContentText("DOTKNIJ, ABY ANULOWAĆ ALARM")
+                    .setContentIntent(pendingIntent)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH); // or NotificationCompat.PRIORITY_MAX
+            Intent dismissIntent = new Intent(this, AlarmRejected.class);
+            dismissIntent.setAction("ANULUJ");
+            dismissIntent.putExtra("REJECT_ALARM", 2);
+            PendingIntent pendingDismissIntent = PendingIntent.getActivity(this, 0, dismissIntent, 0);
+            builder.addAction(R.drawable.ic_action_search, "ANULUJ", pendingDismissIntent);
+            builder.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM));
+            builder.setVibrate(new long[] { 1000, 1000, 1000, 1000, 1000 });
+            Notification notification = builder.build();
+            notificationManager.notify(1002, notification);
+
+            final Handler h = new Handler();
+            h.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (fallDetected) {
+                        //send sms
+                        LocationRequest locationRequest = new LocationRequest();
+                        locationRequest.setInterval(10000);
+                        locationRequest.setFastestInterval(3000);
+                        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+                        LocationServices.getFusedLocationProviderClient(StartActivity.this)
+                                .requestLocationUpdates(locationRequest, new LocationCallback(){
+                                    @Override
+                                    public void onLocationResult(LocationResult locationResult){
+                                        super.onLocationResult(locationResult);
+                                        LocationServices.getFusedLocationProviderClient(StartActivity.this)
+                                                .removeLocationUpdates(this); //stop getting updates
+                                        String smsText = "Pomocy, doszło do upadku. Moje współrzędne:\n";
+                                        if (locationResult != null && locationResult.getLocations().size() > 0){
+                                            int latestLocationIndex = locationResult.getLocations().size() - 1;
+                                            double latitude = locationResult.getLocations().get(latestLocationIndex).getLatitude();
+                                            double longitude = locationResult.getLocations().get(latestLocationIndex).getLongitude();
+                                            smsText += "http://www.google.com/maps/place/" + latitude + "," + longitude;
+                                            smsmanager.sendTextMessage(SettingsActivity.getPhoneNumber(getApplicationContext()), null, smsText, null, null);
+                                        }
+                                    }
+                                }, Looper.getMainLooper());
+                        fallDetected = false;
+                    }
+                }
+            }, 15000);
         }
-        //awsService.test2(storage.generateJson(Storage.Type.PRIMARY));
-        //awsService.test2("{\"measurements\": {\"wearable\":[ {\"X\": 0, \"Y\": 2, \"Z\": 3}, {\"X\": 0, \"Y\": 2, \"Z\": 3} ], \"phone\":[ {\"X\": 0.123, \"Y\": 1.23, \"Z\": 3}, {\"X\": 1.234, \"Y\": 23.45, \"Z\": 3} ]} }");
+    }
+
+    public static void resetFallDetected(){
+        notificationManager.cancel(1002);
+        fallDetected = false;
     }
 
     private byte[] encrypt(byte[] data){
@@ -588,7 +684,6 @@ public class StartActivity extends AppCompatActivity {
             final int x = data[3+i*6] < 0 ? (data[2+i*6] & 0xff) - 256 - (~data[3+i*6] << 8) : (data[2+i*6] & 0xFF) + (data[3+i*6] << 8);
             final int y = data[5+i*6] < 0 ? (data[4+i*6] & 0xff) - 256 - (~data[5+i*6] << 8) : (data[4+i*6] & 0xFF) + (data[5+i*6] << 8);
             final int z = data[7+i*6] < 0 ? (data[6+i*6] & 0xff) - 256 - (~data[7+i*6] << 8) : (data[6+i*6] & 0xFF) + (data[7+i*6] << 8);
-            //System.out.println("[" + x + ", " + data[3+i*6] + ", " + y + ", " + data[5+i*6] + ", " + z + ", " + data[7+i*6] + "]");
 
             storage.writeWearableSensor(new Integer[]{x, y, z});
 
@@ -616,7 +711,7 @@ public class StartActivity extends AppCompatActivity {
         if (measurementMode != ChooseActivity.MeasurementMode.WEARABLE)
             requestAccelerometer();
         storage.clear();
-        final Handler h = new Handler();
+        StartActivity delegate = this;
         h.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -635,14 +730,14 @@ public class StartActivity extends AppCompatActivity {
                 h.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        storage.sendToQualify();
+                        storage.sendToQualify(delegate, measurementMode);
                         h.postDelayed(this, frameWidth); //6 seconds of data obtanining
                     }
                 }, frameWidth); //a few seconds later
                 h.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        storage.sendShadeToQualify();
+                        storage.sendShadeToQualify(delegate,measurementMode);
                         h.postDelayed(this, frameWidth); //6 seconds of data obtanining
                     }
                 }, frameWidth + shadeLatency); //a few seconds later, frame + latency seconds
@@ -673,9 +768,8 @@ public class StartActivity extends AppCompatActivity {
     }
 
     public void back(View view){
-        Intent intent = new Intent(StartActivity.this, ChooseActivity.class);
-        // start the activity connect to the specified class
-        startActivity(intent);
+        h.removeCallbacksAndMessages(null);
+        finish();
     }
 
     @Override

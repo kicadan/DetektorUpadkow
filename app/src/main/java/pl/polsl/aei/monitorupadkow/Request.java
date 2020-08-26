@@ -25,18 +25,19 @@ public class Request {
         this.lastName = lastName;
     }*/
 
-    Body body;
+    Measurements measurements;
+    Features features;
 
-    public Body getBody() {
-        return body;
+    public Measurements getMeasurements() {
+        return measurements;
     }
 
-    public void setBody(Body body) {
-        this.body = body;
+    public void setMeasurements(Measurements measurements) {
+        this.measurements = measurements;
     }
 
-    public Request(Body body) {
-        this.body = body;
+    public Request(Measurements measurements) {
+        this.measurements = measurements;
     }
 
     public Request(){

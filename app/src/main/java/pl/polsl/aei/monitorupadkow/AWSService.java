@@ -65,8 +65,8 @@ public class AWSService {
         }.execute(request);
     }*/
 
-    public void qualifyData(String JSON){
-        Request request = new Request(new Gson().fromJson(JSON, Body.class));
+    public void qualifyData(StartActivity delegate, String JSON, ChooseActivity.MeasurementMode mode){
+        Request request = new Gson().fromJson(JSON, Request.class);
         // The Lambda function invocation results in a network call.
         // Make sure it is not called from the main thread.
         new AsyncTask<Request, Void, Response>() {
@@ -74,8 +74,22 @@ public class AWSService {
             protected Response doInBackground(Request... params) {
                 // invoke "echo" method. In case it fails, it will throw a
                 // LambdaFunctionException.
+                Response response = new Response("ERR");
                 try {
-                    return lambdaInterface.transformAppData(params[0]);
+                    switch(mode){
+                        case COMPLEX:
+                            response = lambdaInterface.qualifyComplex(params[0]);
+                            break;
+                        case WEARABLE:
+                            response = lambdaInterface.qualifyWearable(params[0]);
+                            break;
+                        case PHONE:
+                            response = lambdaInterface.qualifyPhone(params[0]);
+                            break;
+                        case ECO:
+                            response = lambdaInterface.qualifyEco(params[0]);
+                    }
+                    return response;
                 } catch (LambdaFunctionException lfe) {
                     return null;
                 }
@@ -87,8 +101,9 @@ public class AWSService {
                     return;
                 }
 
-                // Do a toast
-                System.out.println(result.getBody().getMeasurements().getWearable()[0].getZ());
+                if (result.getResult().toUpperCase().equals("1")){
+                    delegate.notify("1");
+                }
             }
         }.execute(request);
     }
