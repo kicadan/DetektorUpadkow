@@ -1,29 +1,6 @@
 package pl.polsl.aei.monitorupadkow;
 
 public class Request {
-    /*String firstName;
-    String lastName;
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public Request(String firstName, String lastName) {
-        this.firstName = firstName;
-        this.lastName = lastName;
-    }*/
 
     Measurements measurements;
     Features features;
@@ -36,8 +13,17 @@ public class Request {
         this.measurements = measurements;
     }
 
-    public Request(Measurements measurements) {
+    public Features getFeatures() {
+        return features;
+    }
+
+    public void setFeatures(Features features) {
+        this.features = features;
+    }
+
+    public Request(Measurements measurements, Features features) {
         this.measurements = measurements;
+        this.features = features;
     }
 
     public Request(){

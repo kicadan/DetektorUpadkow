@@ -369,24 +369,36 @@ public class Storage {
         String result = "{\n\t\"features\": {";
         switch(type){
             case PRIMARY :
-                result += "\n\t\t\"wearableStdDevX\": " + Calculator.standardDeviation(queueX, queueCounter) + "," +
-                        "\n\t\t\"wearableStdDevY\": " + Calculator.standardDeviation(queueY, queueCounter) + "," +
-                        "\n\t\t\"wearableStdDevZ\": " + Calculator.standardDeviation(queueZ, queueCounter) + "," +
-                        "\n\t\t\"phoneStdDevX\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccX, queueAccCounter)) + "," +
-                        "\n\t\t\"phoneStdDevY\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccY, queueAccCounter)) + "," +
-                        "\n\t\t\"phoneStdDevZ\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccZ, queueAccCounter));
-                result += "\n\t}"
-                        + "\n}";
+                result += "\n\t\t\"wearable\": {";
+                result += "\n\t\t\t\"stdDevX\": " + Calculator.standardDeviation(queueX, queueCounter) + "," +
+                        "\n\t\t\t\"stdDevY\": " + Calculator.standardDeviation(queueY, queueCounter) + "," +
+                        "\n\t\t\t\"stdDevZ\": " + Calculator.standardDeviation(queueZ, queueCounter) + "," +
+                        "\n\t\t\t\"maxMagnitude\": " + Calculator.maxMagnitude(queueX, queueY, queueZ, queueCounter) +
+                        "\n\t\t},";
+                result += "\n\t\t\"phone\": {";
+                result += "\n\t\t\t\"stdDevX\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccX, queueAccCounter)) + "," +
+                        "\n\t\t\t\"stdDevY\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccY, queueAccCounter)) + "," +
+                        "\n\t\t\t\"stdDevZ\": " + Calculator.standardDeviation(Arrays.copyOf(queueAccZ, queueAccCounter)) + "," +
+                        "\n\t\t\t\"maxMagnitude\": " + Calculator.maxMagnitude(Arrays.copyOf(queueAccX, queueAccCounter), Arrays.copyOf(queueAccY, queueAccCounter), Arrays.copyOf(queueAccZ, queueAccCounter)) +
+                        "\n\t\t}" +
+                        "\n\t}" +
+                        "\n}";
                 break;
             case SHADE :
-                result += "\n\t\t\"wearableStdDevX\": " + Calculator.standardDeviation(queueShadeX, queueShadeCounter) + "," +
-                        "\n\t\t\"wearableStdDevY\": " + Calculator.standardDeviation(queueShadeY, queueShadeCounter) + "," +
-                        "\n\t\t\"wearableStdDevZ\": " + Calculator.standardDeviation(queueShadeZ, queueShadeCounter) + "," +
-                        "\n\t\t\"phoneStdDevX\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccX, queueShadeAccCounter)) + "," +
-                        "\n\t\t\"phoneStdDevY\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccY, queueShadeAccCounter)) + "," +
-                        "\n\t\t\"phoneStdDevZ\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccZ, queueShadeAccCounter));
-                result += "\n\t}"
-                        + "\n}";
+                result += "\n\t\t\"wearable\": {";
+                result += "\n\t\t\t\"stdDevX\": " + Calculator.standardDeviation(queueShadeX, queueShadeCounter) + "," +
+                        "\n\t\t\t\"stdDevY\": " + Calculator.standardDeviation(queueShadeY, queueShadeCounter) + "," +
+                        "\n\t\t\t\"stdDevZ\": " + Calculator.standardDeviation(queueShadeZ, queueShadeCounter) + "," +
+                        "\n\t\t\t\"maxMagnitude\": " + Calculator.maxMagnitude(queueShadeX, queueShadeY, queueShadeZ, queueShadeCounter) +
+                        "\n\t\t},";
+                result += "\n\t\t\"phone\": {";
+                result += "\n\t\t\t\"stdDevX\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccX, queueShadeAccCounter)) + "," +
+                        "\n\t\t\t\"stdDevY\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccY, queueShadeAccCounter)) + "," +
+                        "\n\t\t\t\"stdDevZ\": " + Calculator.standardDeviation(Arrays.copyOf(queueShadeAccZ, queueShadeAccCounter)) + "," +
+                        "\n\t\t\t\"maxMagnitude\": " + Calculator.maxMagnitude(Arrays.copyOf(queueShadeAccX, queueShadeAccCounter), Arrays.copyOf(queueShadeAccY, queueShadeAccCounter), Arrays.copyOf(queueShadeAccZ, queueShadeAccCounter)) +
+                        "\n\t\t}" +
+                        "\n\t}" +
+                        "\n}";
                 break;
         }
         return result;

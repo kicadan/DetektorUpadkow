@@ -8,8 +8,8 @@ public class Calculator {
 
         double mean = Arrays.stream(vector).average().orElse(Double.NaN);
 
-        for(double num: vector) {
-            standardDeviation += Math.pow(num - mean, 2);
+        for(double number: vector) {
+            standardDeviation += Math.pow(number - mean, 2);
         }
 
         return Math.sqrt(standardDeviation/(Arrays.stream(vector).count()-1));
@@ -29,5 +29,31 @@ public class Calculator {
         }
 
         return Math.sqrt(standardDeviation/(Arrays.stream(vector).count()-1));
+    }
+
+    public static double maxMagnitude(double[] vectorX, double[] vectorY, double[] vectorZ){
+        double maxMagnitude = 0;
+        double magnitude = 0;
+
+        for(int i = 0; i < vectorX.length; i++){
+            magnitude = Math.sqrt(Math.pow(vectorX[i], 2) + Math.pow(vectorY[i], 2) + Math.pow(vectorZ[i], 2));
+            if (magnitude > maxMagnitude)
+                maxMagnitude = magnitude;
+        }
+
+        return maxMagnitude;
+    }
+
+    public static double maxMagnitude(Integer[] vectorX, Integer[] vectorY, Integer[] vectorZ, int counter){
+        double maxMagnitude = 0;
+        double magnitude = 0;
+
+        for(int i = 0; i < counter; i++){
+            magnitude = Math.sqrt(Math.pow(vectorX[i], 2) + Math.pow(vectorY[i], 2) + Math.pow(vectorZ[i], 2));
+            if (magnitude > maxMagnitude)
+                maxMagnitude = magnitude;
+        }
+
+        return maxMagnitude;
     }
 }

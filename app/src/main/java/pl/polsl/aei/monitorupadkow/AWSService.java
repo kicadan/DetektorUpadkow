@@ -37,34 +37,6 @@ public class AWSService {
         lambdaInterface = factory.build(LambdaInterface.class);
     }
 
-    /*public void test(){
-        Request request = new Request("John", "Doe");
-        // The Lambda function invocation results in a network call.
-        // Make sure it is not called from the main thread.
-        new AsyncTask<Request, Void, Response>() {
-            @Override
-            protected Response doInBackground(Request... params) {
-                // invoke "echo" method. In case it fails, it will throw a
-                // LambdaFunctionException.
-                try {
-                    return lambdaInterface.testFunction(params[0]);
-                } catch (LambdaFunctionException lfe) {
-                    return null;
-                }
-            }
-
-            @Override
-            protected void onPostExecute(Response result) {
-                if (result == null) {
-                    return;
-                }
-
-                // Do a toast
-                System.out.println(result.getGreetings());
-            }
-        }.execute(request);
-    }*/
-
     public void qualifyData(StartActivity delegate, String JSON, ChooseActivity.MeasurementMode mode){
         Request request = new Gson().fromJson(JSON, Request.class);
         // The Lambda function invocation results in a network call.
